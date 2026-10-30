@@ -1,0 +1,27 @@
+{
+  "name": "prettier-plugin-unocss",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prettier plugin that sorts UnoCSS utilities (prototype)",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "license": "MIT",
+  "scripts": {
+    "play": "prettier --plugin=./src/index.js playground/example.tsx",
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "dependencies": {
+    "@unocss/config": "^66.12.0",
+    "@unocss/core": "^66.12.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "unocss": "^66.12.0"
+  }
+}
