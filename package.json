@@ -31,7 +31,8 @@
     "typecheck": "tsc",
     "test": "vitest run",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "play": "pnpm build && prettier --plugin=./dist/index.mjs playground/example.tsx"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"
@@ -43,6 +44,7 @@
     "prettier": "^3.9.10",
     "tsdown": "^0.23.4",
     "typescript": "^6.0.3",
+    "unocss": "^66.12.0",
     "vitest": "^5.0.5"
   }
 }

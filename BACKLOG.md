@@ -29,11 +29,11 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 ## U0: Project setup
 
 - [x] pnpm project, `"type": "module"`, Node ≥ 22 (Node 20 is EOL; tsdown and Vitest need ≥ 22), `prettier` ^3 as peer dependency
-- [ ] TypeScript strict config; build with `tsdown` (or `unbuild`, like UnoCSS) to ESM + `.d.ts`
-- [ ] Vitest, `@antfu/eslint-config`, scripts: `build`, `test`, `lint`, `typecheck`, `play`
+- [x] TypeScript strict config; build with `tsdown` (or `unbuild`, like UnoCSS) to ESM + `.d.ts`
+- [x] Vitest, `@antfu/eslint-config`, scripts: `build`, `test`, `lint`, `typecheck`, `play`
 - [ ] `LICENSE` (MIT). Keep the attribution comment for the code adapted from UnoCSS in `src/sort.ts`
 - [ ] GitHub Actions CI: lint, typecheck, test on Node 22, 24 and 26
-- [ ] `playground/` with `uno.config.ts` and example files
+- [x] `playground/` with `uno.config.ts` and example files
 
 **Done when:** `pnpm build && pnpm test && pnpm lint` pass in CI on an empty plugin.
 
