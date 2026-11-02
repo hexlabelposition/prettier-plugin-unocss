@@ -33,6 +33,7 @@ src/
   generator.ts    Loads uno.config, caches UnoGenerator instances
   sort.ts         Ordering algorithm (string in → string out)
   transform/
+    index.ts      sortClassesInAst: collect, sort, rewrite
     walk.ts       Generic AST walker
     collect.ts    Finds class strings in an ESTree/Babel AST
     rewrite.ts    Writes sorted strings back (value + raw)

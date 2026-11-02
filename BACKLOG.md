@@ -41,7 +41,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 
 - [x] `sort.ts`: ordering algorithm + unit tests (unknown first, variants last, variant groups, shortcuts, empty input, extra whitespace)
 - [x] `generator.ts`: config loading + cache (promise cache, no config → `undefined`)
-- [ ] `transform/`: walk, collect, rewrite, template handling, split as in ARCHITECTURE
+- [x] `transform/`: walk, collect, rewrite, template handling, split as in ARCHITECTURE
 - [ ] `parsers.ts`: wrap `babel`, `babel-ts`, `typescript`, `acorn`, `espree`, `meriyah`
 - [ ] `options.ts`: `unoConfig`, `unoAttributes`, `unoFunctions` with types for `prettier.config.ts` users
 - [ ] Port all prototype tests to fixtures; delete `prototype/`
