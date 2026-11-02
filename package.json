@@ -1,0 +1,27 @@
+{
+  "name": "prettier-plugin-unocss",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.28.4",
+  "description": "Prettier plugin that sorts UnoCSS utilities using your own uno.config",
+  "license": "MIT",
+  "keywords": [
+    "prettier",
+    "prettier-plugin",
+    "unocss"
+  ],
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "peerDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}
