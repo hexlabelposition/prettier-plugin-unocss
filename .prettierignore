@@ -1,0 +1,4 @@
+# Source code is formatted by ESLint (@antfu/eslint-config).
+# Prettier only formats the playground, to try the plugin.
+/*
+!/playground/

@@ -1,0 +1,21 @@
+{
+  // Code style is enforced by ESLint (@antfu/eslint-config), not Prettier
+  "prettier.enable": false,
+  "editor.formatOnSave": false,
+
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "never"
+  },
+
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "markdown",
+    "json",
+    "jsonc",
+    "yaml"
+  ]
+}
