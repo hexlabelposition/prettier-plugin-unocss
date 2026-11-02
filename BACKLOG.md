@@ -6,7 +6,7 @@ Check items off (`[x]`) in the same commit that completes them.
 ## For coding agents: read first
 
 - Read `ARCHITECTURE.md` before changing code. If a change contradicts it, update the doc in the same commit.
-- The JavaScript prototype in `prototype/` is the reference implementation. Port behaviour from it; don't redesign without a reason written in the PR.
+- The JavaScript prototype (commit `defa9a9`, removed in U1) was the reference implementation; its tests live on as fixtures in `test/fixtures/`. Don't redesign ported behaviour without a reason written in the commit or PR.
 - **Never change behaviour of formatted code.** When a case is ambiguous (escapes, partial classes, unknown syntax), skip it. A missed sort is acceptable; a broken string is not.
 - Every behaviour change gets a test. Prefer fixture tests (`test/fixtures/<case>/input.* → output.*`).
 - Output must match the UnoCSS ESLint `order` rule for the same input. When in doubt, compare against it.
@@ -44,7 +44,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 - [x] `transform/`: walk, collect, rewrite, template handling, split as in ARCHITECTURE
 - [x] `parsers.ts`: wrap `babel`, `babel-ts`, `typescript`, `acorn`, `espree`, `meriyah`
 - [x] `options.ts`: `unoConfig`, `unoAttributes`, `unoFunctions` with types for `prettier.config.ts` users
-- [ ] Port all prototype tests to fixtures; delete `prototype/`
+- [x] Port all prototype tests to fixtures; delete `prototype/`
 
 **Done when:** every prototype test passes as a fixture, `playground/example.tsx` formats identically to the prototype.
 

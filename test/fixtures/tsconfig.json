@@ -1,0 +1,13 @@
+{
+  // Fixtures are formatter input/output, not compiled code: free identifiers
+  // like `myCn` or `c` are expected. Syntax is still checked, types are not.
+  "compilerOptions": {
+    "target": "ESNext",
+    "jsx": "preserve",
+    "allowJs": true,
+    "noCheck": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["*/**/*"]
+}
