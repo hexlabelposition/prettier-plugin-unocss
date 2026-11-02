@@ -71,13 +71,30 @@ describe('getGenerator', () => {
     })
   })
 
-  it('reuses one generator for files in the same directory', async () => {
-    const filepath = join(configs, 'project/file.tsx')
-    const first = getGenerator({ filepath })
-    const second = getGenerator({
-      filepath: join(configs, 'project/other.tsx'),
-    })
-    expect(second).toBe(first)
-    expect(await second).toBe(await first)
+  it('reuses one generator per config file', async () => {
+    const [root, nested, explicit] = await Promise.all([
+      getGenerator({
+        filepath: join(configs, 'project/file.tsx'),
+      }),
+      getGenerator({
+        filepath: join(configs, 'project/nested/deep/file.tsx'),
+      }),
+      getGenerator({ unoConfig: 'test/configs/project/uno.config.ts' }),
+    ])
+    expect(root).toBeDefined()
+    expect(nested).toBe(root)
+    expect(explicit).toBe(root)
+  })
+
+  it('creates separate generators for separate config files', async () => {
+    const [a, b] = await Promise.all([
+      getGenerator({
+        filepath: join(configs, 'project/file.tsx'),
+      }),
+      getGenerator({
+        filepath: join(configs, 'other/file.tsx'),
+      }),
+    ])
+    expect(a).not.toBe(b)
   })
 })

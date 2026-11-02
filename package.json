@@ -39,7 +39,8 @@
   },
   "dependencies": {
     "@unocss/config": "^66.12.0",
-    "@unocss/core": "^66.12.0"
+    "@unocss/core": "^66.12.0",
+    "unconfig": "^7.5.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^10.0.0",

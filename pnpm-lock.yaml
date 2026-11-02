@@ -14,6 +14,9 @@ importers:
       '@unocss/core':
         specifier: ^66.12.0
         version: 66.12.0
+      unconfig:
+        specifier: ^7.5.0
+        version: 7.5.0
     devDependencies:
       '@antfu/eslint-config':
         specifier: ^10.0.0

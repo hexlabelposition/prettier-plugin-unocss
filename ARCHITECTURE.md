@@ -59,9 +59,10 @@ Adapted from UnoCSS `virtual-shared/integration/src/sort-rules.ts` (MIT), the sa
 
 ## Config loading (`generator.ts`)
 
-- `loadConfig` from `@unocss/config` searches for `uno.config.*` starting from the formatted file's directory (or `cwd` + explicit path when `unoConfig` is set). This mirrors the ESLint plugin's `worker.ts` and makes monorepos work.
-- One `UnoGenerator` per config location, cached in a `Map` of **promises** (so parallel requests share one load).
-- No config found → `undefined` → the file is left untouched. We never guess presets.
+- First, find the config file: `unocss.config.*` / `uno.config.*`, searching up from the formatted file's directory, or the `unoConfig` path resolved from `cwd`. The search uses `unconfig`'s `findConfigs()` with the same file names as `@unocss/config`, so it finds exactly the file `loadConfig` would load, but without loading it. This makes monorepos work.
+- Then `loadConfig` from `@unocss/config` loads that file and a `UnoGenerator` is created from it.
+- One `UnoGenerator` per **config file path**, cached in a `Map` of **promises** (so parallel requests share one load). Files in different directories under the same config share one generator; the per-file cost of the search is only a few `stat` calls.
+- No config found → `undefined` → the file is left untouched, and `loadConfig` is not called at all (it would log a "Config file not found" error). We never guess presets.
 
 Open issue: the cache never invalidates. Editors keep Prettier alive between saves, so a changed `uno.config` is not picked up until restart. See BACKLOG.
 
