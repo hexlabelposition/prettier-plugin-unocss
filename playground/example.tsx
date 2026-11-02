@@ -1,7 +1,7 @@
 import { tv } from "tailwind-variants";
 import clsx from "clsx";
 
-const button = tv({
+export const button = tv({
   base: "text-white font-medium btn flex items-center",
   variants: {
     size: { sm: "text-sm p-2", lg: "p-4 text-lg" },
