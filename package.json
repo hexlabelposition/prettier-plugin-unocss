@@ -38,6 +38,7 @@
     "prettier": "^3.0.0"
   },
   "dependencies": {
+    "@unocss/config": "^66.12.0",
     "@unocss/core": "^66.12.0"
   },
   "devDependencies": {

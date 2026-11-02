@@ -40,7 +40,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 ## U1: Port the prototype to TypeScript
 
 - [x] `sort.ts`: ordering algorithm + unit tests (unknown first, variants last, variant groups, shortcuts, empty input, extra whitespace)
-- [ ] `generator.ts`: config loading + cache (promise cache, no config → `undefined`)
+- [x] `generator.ts`: config loading + cache (promise cache, no config → `undefined`)
 - [ ] `transform/`: walk, collect, rewrite, template handling, split as in ARCHITECTURE
 - [ ] `parsers.ts`: wrap `babel`, `babel-ts`, `typescript`, `acorn`, `espree`, `meriyah`
 - [ ] `options.ts`: `unoConfig`, `unoAttributes`, `unoFunctions` with types for `prettier.config.ts` users
