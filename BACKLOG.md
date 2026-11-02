@@ -42,8 +42,8 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 - [x] `sort.ts`: ordering algorithm + unit tests (unknown first, variants last, variant groups, shortcuts, empty input, extra whitespace)
 - [x] `generator.ts`: config loading + cache (promise cache, no config → `undefined`)
 - [x] `transform/`: walk, collect, rewrite, template handling, split as in ARCHITECTURE
-- [ ] `parsers.ts`: wrap `babel`, `babel-ts`, `typescript`, `acorn`, `espree`, `meriyah`
-- [ ] `options.ts`: `unoConfig`, `unoAttributes`, `unoFunctions` with types for `prettier.config.ts` users
+- [x] `parsers.ts`: wrap `babel`, `babel-ts`, `typescript`, `acorn`, `espree`, `meriyah`
+- [x] `options.ts`: `unoConfig`, `unoAttributes`, `unoFunctions` with types for `prettier.config.ts` users
 - [ ] Port all prototype tests to fixtures; delete `prototype/`
 
 **Done when:** every prototype test passes as a fixture, `playground/example.tsx` formats identically to the prototype.

@@ -1,5 +1,3 @@
-import type { Parser, SupportOption } from 'prettier'
-
-export const parsers: Record<string, Parser> = {}
-
-export const options: Record<string, SupportOption> = {}
+export type { PluginOptions } from './options'
+export { options } from './options'
+export { parsers } from './parsers'
