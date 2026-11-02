@@ -37,6 +37,9 @@
   "peerDependencies": {
     "prettier": "^3.0.0"
   },
+  "dependencies": {
+    "@unocss/core": "^66.12.0"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^10.0.0",
     "@types/node": "^22.20.5",
