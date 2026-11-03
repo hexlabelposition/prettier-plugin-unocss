@@ -53,7 +53,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 - [x] Conditional / logical / array expressions inside class contexts: `cond ? 'a b' : 'c d'`, `[a && 'x y']`
 - [x] clsx-style object **keys**: `clsx({ 'p-4 flex': on })`. Sort keys only inside clsx-like functions, never inside `tv`/`cva`
 - [x] Strings inside `${…}` of class template literals
-- [ ] `String.raw` templates (the ESLint rule supports them)
+- [x] `String.raw` templates (the ESLint rule supports them)
 - [ ] `unoVariables` option, like the ESLint rule: sort string values assigned to variables matching regexes (`^cls`, `classNames?$`)
 - [ ] Strings with quotes / escapes: handle correctly instead of skipping, with tests for `'`, `"`, `\\`
 - [ ] Multiline class strings: decide (keep line breaks or collapse?) and document

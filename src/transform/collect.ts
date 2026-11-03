@@ -61,6 +61,15 @@ function identifierName(node: unknown): string | undefined {
     : undefined
 }
 
+/** `String.raw`, but not `String['raw']` or `obj.String.raw`. */
+function isStringRaw(node: unknown): boolean {
+  return isNode(node)
+    && node.type === 'MemberExpression'
+    && !node.computed
+    && identifierName(node.object) === 'String'
+    && identifierName(node.property) === 'raw'
+}
+
 /** `class` / `className`; namespaced names like `xlink:href` are not identifiers. */
 function jsxAttributeName(node: AstNode): string | undefined {
   return isNode(node.name) && node.name.type === 'JSXIdentifier' && typeof node.name.name === 'string'
@@ -156,6 +165,7 @@ function staticKeyName(property: AstNode): string | undefined {
  * expressions (`c && 'a'`), array elements and object property **values**
  * (and keys, see below) and template expressions separated from their
  * neighbours by whitespace (`` `p-4 ${on ? 'a b' : ''}` ``), recursively.
+ * `` String.raw`…` `` is treated like a plain template literal.
  * Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, the glued
  * `` `bg-${c ? 'red' : 'blue'}` ``) is not a class position;
  * its strings are left alone, but it is still searched for nested class
@@ -201,6 +211,11 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
         else
           findClassContexts(expression)
       }
+      return
+    }
+    // String.raw`p-4 flex`: the same text as a plain template
+    if (node.type === 'TaggedTemplateExpression' && isStringRaw(node.tag)) {
+      collectClassValue(node.quasi, false)
       return
     }
     switch (node.type) {

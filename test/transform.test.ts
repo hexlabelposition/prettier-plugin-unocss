@@ -283,6 +283,18 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectUnchanged('other(`p-4 ${on ? "p-4 flex" : ""}`);')
     })
 
+    it('sorts String.raw templates in class positions', async () => {
+      await expectFormat('clsx(String.raw`p-4 flex`);', 'clsx(String.raw`flex p-4`);')
+      await expectFormat('clsx(on && String.raw`p-4 flex ${x}`);', 'clsx(on && String.raw`flex p-4 ${x}`);')
+      await expectFormat('<a className={String.raw`p-4 flex`} />;', '<a className={String.raw`flex p-4`} />;')
+    })
+
+    it('leaves other String.raw templates alone', async () => {
+      await expectUnchanged('String.raw`p-4 flex`;')
+      await expectUnchanged('clsx(String["raw"]`p-4 flex`, obj.String.raw`p-4 flex`);')
+      await expectUnchanged('clsx(String.raw`p-4 flex \\d`);')
+    })
+
     it('skips chunks with escapes', async () => {
       await expectUnchanged('clsx(`p-4 flex \\n`);')
     })
