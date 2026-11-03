@@ -75,7 +75,9 @@ Open issue: the cache never invalidates. Editors keep Prettier alive between sav
 - an argument of a call to a function listed in `unoFunctions`;
 - the quasi of a tagged template whose tag is in `unoFunctions`.
 
-Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments and object property **values** (not keys). TypeScript wrappers (`as`, `satisfies`, `!`) are transparent. Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
+Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments and object property **values**. TypeScript wrappers (`as`, `satisfies`, `!`) are transparent. Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
+
+**Object keys** are classes inside clsx-like functions (`clsx({ 'p-4 flex': on })`), but names in `tv` and `cva` (`tv({ base: '…' })`) and in JSX attributes, where they are never touched. The variant functions are a fixed list (`tv`, `cva`) in `collect.ts`. Only static keys are sorted (`'a b'`, `['a b']`, `` [`a b`] ``), and only in objects without spreads. The keys of one object are sorted as a group: if sorting would make two keys equal (`{ 'p-4 flex': a, 'flex p-4': b }`), the later one would override the earlier one, so the whole object's keys are left alone.
 
 This is a superset of the ESLint `order` rule, which looks only one level deep (call arguments, and literals directly in JSX attributes).
 
@@ -95,12 +97,11 @@ Strings are collected first and sorted after the walk, because sorting is async 
 | Async parse                                       | Prettier 3 supports it; `loadConfig` and `parseToken` are async; no `synckit` worker needed (unlike ESLint) |
 | Same ordering as the ESLint rule                  | Predictable for UnoCSS users; one source of truth                                                           |
 | No config → no-op                                 | Guessing presets would produce wrong orders silently                                                        |
-| Sort values, not object keys                      | In `tv`/`cva` keys are names (`base`, `size`), not classes                                                  |
+| Object keys only in clsx-like functions           | In `tv`/`cva` keys are names (`base`, `size`), not classes                                                  |
 
 ## Known limitations
 
 - Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, prettier-plugin-svelte, …) needs a compatibility layer.
-- clsx-style object keys (`clsx({ 'p-4 flex': cond })`) are not sorted.
 - Strings inside `${…}` of a template literal are not sorted.
 - Attributify mode is not supported.
 

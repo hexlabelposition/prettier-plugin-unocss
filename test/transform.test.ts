@@ -143,7 +143,6 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectUnchanged('cn(obj["p-4 flex"], obj.get("p-4 flex"));')
       await expectUnchanged('cn("p-4 flex".split(" "));')
       await expectUnchanged('cn(css`p-4 flex`);')
-      await expectUnchanged('cn({ ["p-4 flex"]: on });')
       await expectUnchanged('<a className={x === "p-4 flex" ? "flex p-4" : ""} />;')
       await expectUnchanged('<a className={other("p-4 flex")} />;')
     })
@@ -159,6 +158,40 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
         'tv({ base: "p-4 flex", variants: { "p-4 flex": { sm: "text-sm p-1" } } });',
         'tv({ base: "flex p-4", variants: { "p-4 flex": { sm: "p-1 text-sm" } } });',
       )
+    })
+
+    it('sorts object keys in clsx-like functions', async () => {
+      await expectFormat('clsx({ "p-4 flex": on, flex: x });', 'clsx({ "flex p-4": on, flex: x });')
+      await expectFormat('cn([{ "p-4 flex": on }], x ? { "mt-2 m-1": on } : "");', 'cn([{ "flex p-4": on }], x ? { "m-1 mt-2": on } : "");')
+      await expectFormat('cn({ ["p-4 flex"]: on, [`mt-2 m-1`]: on });', 'cn({ ["flex p-4"]: on, [`m-1 mt-2`]: on });')
+    })
+
+    it('leaves object keys alone in tv and cva', async () => {
+      await expectFormat(
+        'cva("p-4 flex", { variants: { "p-4 flex": { "mt-2 m-1": "mt-2 m-1" } } });',
+        'cva("flex p-4", { variants: { "p-4 flex": { "mt-2 m-1": "m-1 mt-2" } } });',
+      )
+    })
+
+    it('leaves object keys alone in JSX attributes', async () => {
+      await expectUnchanged('<a className={{ "p-4 flex": on }} />;')
+    })
+
+    it('leaves dynamic object keys alone', async () => {
+      await expectUnchanged('cn({ [x ? "p-4 flex" : "mt-2 m-1"]: on, [`p-4 flex ${x}`]: on });')
+      await expectUnchanged('cn({ [other("p-4 flex")]: on });')
+      await expectFormat('cn({ [clsx("p-4 flex")]: on });', 'cn({ [clsx("flex p-4")]: on });')
+    })
+
+    it('leaves object keys alone when sorting would make two keys equal', async () => {
+      await expectUnchanged('cn({ "p-4 flex": a, "flex p-4": b, "mt-2 m-1": c });')
+      await expectUnchanged('cn({ "p-4 flex": a, [`flex p-4`]: b });')
+      await expectUnchanged('cn({ "flex  p-4": a, "flex p-4": b });')
+      await expectUnchanged('cn({ " p-4 flex": a, "  flex p-4": b });')
+    })
+
+    it('leaves object keys alone next to a spread', async () => {
+      await expectUnchanged('cn({ ...base, "p-4 flex": on });')
     })
 
     it('leaves other functions alone', async () => {
