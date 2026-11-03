@@ -89,6 +89,18 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectFormat('<a className={`p-4 flex`} />;', '<a className={`flex p-4`} />;')
     })
 
+    it('sorts attribute strings with quotes and entities', async () => {
+      await expectFormat(String.raw`<a className="content-['x'] p-4 flex" />;`, String.raw`<a className="flex p-4 content-['x']" />;`)
+      await expectFormat(String.raw`<a className="content-[&quot;x&quot;] p-4 flex" />;`, String.raw`<a className='flex p-4 content-["x"]' />;`)
+      await expectFormat('<a className="p-4 &amp; flex" />;', '<a className="&amp; flex p-4" />;')
+      // No escapes in JSX: a backslash is just a character
+      await expectFormat(String.raw`<a className="w-[a\b] p-4 flex" />;`, String.raw`<a className="w-[a\b] flex p-4" />;`)
+    })
+
+    it('skips attribute strings with unknown entities', async () => {
+      await expectUnchanged('<a className="p-4 &nbsp; flex" />;')
+    })
+
     it('leaves other attributes alone', async () => {
       await expectUnchanged('<a title="p-4 flex" />;')
       await expectUnchanged('<a xlink:href="p-4 flex" />;')
@@ -289,9 +301,29 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectFormat('clsx(" p-4 flex ");', 'clsx(" flex p-4 ");')
     })
 
-    it('skips strings with quotes or backslashes', async () => {
-      await expectUnchanged('clsx("p-4 flex it\'s");')
-      await expectUnchanged('clsx("p-4 flex \\\\");')
+    it('sorts strings with quotes', async () => {
+      await expectFormat(String.raw`clsx("content-['x'] p-4 flex");`, String.raw`clsx("flex p-4 content-['x']");`)
+      await expectFormat(String.raw`clsx('content-["x"] p-4 flex');`, String.raw`clsx('flex p-4 content-["x"]');`)
+    })
+
+    it('keeps escapes in place', async () => {
+      // Prettier picks the quote that needs fewer escapes; the classes keep theirs
+      await expectFormat(String.raw`clsx("content-[\"x\"] p-4 flex it's");`, String.raw`clsx('it\'s flex p-4 content-["x"]');`)
+      await expectFormat(String.raw`clsx("p-4 flex a\\b");`, String.raw`clsx("a\\b flex p-4");`)
+      await expectFormat(String.raw`clsx("p-4 mt-1 \x66lex");`, String.raw`clsx("mt-1 \x66lex p-4");`)
+    })
+
+    it('skips strings with escaped whitespace', async () => {
+      await expectUnchanged(String.raw`clsx("p-4\nflex mt-1");`)
+      await expectUnchanged(String.raw`clsx("p-4\tflex mt-1");`)
+    })
+
+    it('skips variant groups that would need new escapes', async () => {
+      await expectUnchanged(String.raw`clsx('hover:(content-["x"] p-4) flex');`)
+    })
+
+    it('sorts object keys with escapes', async () => {
+      await expectFormat(String.raw`clsx({ "content-[\"x\"] p-4 flex": on });`, String.raw`clsx({ 'flex p-4 content-["x"]': on });`)
     })
   })
 
@@ -352,7 +384,14 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectUnchanged('clsx(String.raw`p-4 flex \\d`);')
     })
 
-    it('skips chunks with escapes', async () => {
+    it('keeps escapes in place', async () => {
+      await expectFormat('clsx(`content-[\\`x\\`] p-4 flex`);', 'clsx(`flex p-4 content-[\\`x\\`]`);')
+      await expectFormat('clsx(`p-4 \\${x} flex`);', 'clsx(`\\${x} flex p-4`);')
+      await expectFormat('clsx(`p-4 flex \\\\ ${x} m-1 mt-2`);', 'clsx(`\\\\ flex p-4 ${x} m-1 mt-2`);')
+      await expectFormat('clsx(`content-[\'x\'] p-4 flex`);', 'clsx(`flex p-4 content-[\'x\']`);')
+    })
+
+    it('skips chunks with escaped whitespace', async () => {
       await expectUnchanged('clsx(`p-4 flex \\n`);')
     })
   })

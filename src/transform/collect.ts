@@ -49,6 +49,10 @@ export interface ClassNodes {
   strings: StringLiteralNode[]
   templates: TemplateLiteralNode[]
   keyGroups: KeyGroup[]
+  /** Strings that are JSX attribute values: HTML entities instead of escapes. */
+  jsxStrings: Set<StringLiteralNode>
+  /** Templates of `` String.raw`…` ``: their value is the raw text. */
+  stringRawTemplates: Set<TemplateLiteralNode>
 }
 
 export function isStringLiteral(node: AstNode): node is StringLiteralNode {
@@ -205,7 +209,13 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
   const attributes = new Set(options.attributes)
   const functions = new Set(options.functions)
   const variables = compileVariables(options.variables ?? [])
-  const result: ClassNodes = { strings: [], templates: [], keyGroups: [] }
+  const result: ClassNodes = {
+    strings: [],
+    templates: [],
+    keyGroups: [],
+    jsxStrings: new Set(),
+    stringRawTemplates: new Set(),
+  }
 
   /**
    * The value of a class variable, as in the ESLint rule: a class value, an
@@ -286,7 +296,8 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
       return
     }
     // String.raw`p-4 flex`: the same text as a plain template
-    if (node.type === 'TaggedTemplateExpression' && isStringRaw(node.tag)) {
+    if (node.type === 'TaggedTemplateExpression' && isStringRaw(node.tag) && isTemplateLiteral(node.quasi)) {
+      result.stringRawTemplates.add(node.quasi)
       collectClassValue(node.quasi, false)
       return
     }
@@ -354,6 +365,8 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
           const value = isNode(node.value) && node.value.type === 'JSXExpressionContainer'
             ? node.value.expression
             : node.value
+          if (isNode(value) && isStringLiteral(value) && value === node.value)
+            result.jsxStrings.add(value)
           collectClassValue(value, false)
           return false
         }

@@ -38,6 +38,7 @@ src/
     collect.ts    Finds class strings in an ESTree/Babel AST
     rewrite.ts    Writes sorted strings back (value + raw)
     template.ts   Template literal handling
+    escapes.ts    Escapes and JSX entities: source text ↔ value
   options.ts      Option definitions and their types
 ```
 
@@ -86,11 +87,15 @@ Strings are collected first and sorted after the walk, because sorting is async 
 
 **Rewriting.** Prettier printers print string literals from their **raw** source text (to keep quotes and escapes), so we update `value`, `raw` and Babel's `extra.raw` / `extra.rawValue` together, keeping the original quote character.
 
+**Quotes and escapes.** Classes may contain quotes (`content-['x']`) and a string may spell them with escapes (`"content-[\"x\"]"`, `&quot;` in JSX). The source text between the quotes is split into units, each a character or an escape with its value (`escapes.ts`); decoding must give exactly the parser's `value`, otherwise the string is skipped. The value is sorted, and every whitespace-separated piece of the result that is in the source gets its original spelling back, escapes included. A new piece, which only a variant group collapsed differently can produce, is written as is unless it contains a character that would need escaping (both quotes and `\` in strings, `` ` `` / `\` / `${` in templates, quotes and `&` in JSX); then the string is skipped. Both quotes count for strings because Prettier may switch the quote character, and the next format must take the same decision (idempotency).
+
+Skipped on purpose: escaped whitespace (`\n`, `\t`; see multiline strings in BACKLOG), line continuations, legacy octal escapes, unknown JSX entities (`&nbsp;`), backslashes in `` String.raw`…` `` (its value is the raw text). Prettier's parsers keep named JSX entities in `value` (`&quot;`) but decode numeric ones; the value check accepts that, and the sort uses fully decoded text, as Prettier prints `&quot;` as `"`.
+
 **Template literals.** An expression is a class position only when whitespace or the template's edge is on both sides of it. In `` `bg-${on ? 'red-500 x' : 'blue-500'}` `` the strings are fragments of the class `bg-…`, and sorting them would change the class, so they are left alone (nested `clsx(…)` calls are still sorted).
 
 A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chunk `p-2 bg-` ends with a partial class. Glued fragments at the edges of a chunk are kept in place; only whole classes in between are sorted. Leading/trailing whitespace of each chunk is preserved, because it separates classes from expressions.
 
-**Safety rule.** When unsure, don't touch. Strings with quotes or backslashes inside are currently skipped. A wrong sort is worse than no sort: formatting must never change behaviour.
+**Safety rule.** When unsure, don't touch. A wrong sort is worse than no sort: formatting must never change behaviour.
 
 ## Key decisions
 
