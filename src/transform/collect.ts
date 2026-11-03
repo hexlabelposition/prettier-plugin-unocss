@@ -54,13 +54,34 @@ function jsxAttributeName(node: AstNode): string | undefined {
     : undefined
 }
 
+// Type-only wrappers around a value: `x as T`, `x satisfies T`, `x!`, `<T>x`, `(x: T)`
+const TRANSPARENT_TYPES = new Set([
+  'TSAsExpression',
+  'TSSatisfiesExpression',
+  'TSNonNullExpression',
+  'TSTypeAssertion',
+  'TypeCastExpression',
+  'ParenthesizedExpression',
+])
+
+function isProperty(node: AstNode): boolean {
+  return node.type === 'Property' || node.type === 'ObjectProperty'
+}
+
 /**
  * Finds every string and template literal that holds classes:
  *
  * - the value of a JSX attribute from `attributes`;
- * - inside the arguments of a call to a function from `functions`, recursively,
- *   taking object property **values** but not keys (`tv({ base: '…' })`);
+ * - an argument of a call to a function from `functions`;
  * - the template of a tagged template whose tag is in `functions`.
+ *
+ * Inside such a class context, classes are taken from the branches of
+ * conditionals (`c ? 'a' : 'b'`, not the test), both sides of logical
+ * expressions (`c && 'a'`), array elements and object property **values**
+ * (not keys: in `tv({ base: '…' })` keys are names), recursively. Any other
+ * expression (`a === 'x'`, `other('x')`, `obj['x']`) is not a class position;
+ * its strings are left alone, but it is still searched for nested class
+ * contexts such as `clsx(…)`.
  *
  * Nodes are collected first and rewritten later, because sorting is async and
  * mutating the AST while walking it is error-prone.
@@ -70,53 +91,96 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
   const functions = new Set(options.functions)
   const result: ClassNodes = { strings: [], templates: [] }
 
-  const collectClassContext = (root: unknown): void => {
+  function collectClassValue(node: unknown): void {
+    if (Array.isArray(node)) {
+      node.forEach(collectClassValue)
+      return
+    }
+    if (!isNode(node))
+      return
+
+    if (TRANSPARENT_TYPES.has(node.type)) {
+      collectClassValue(node.expression)
+      return
+    }
+    if (isStringLiteral(node)) {
+      result.strings.push(node)
+      return
+    }
+    if (isTemplateLiteral(node)) {
+      result.templates.push(node)
+      // Strings inside `${…}` are not class positions (yet), but may hold `clsx(…)`
+      findClassContexts(node.expressions)
+      return
+    }
+    switch (node.type) {
+      // c ? 'a' : 'b'
+      case 'ConditionalExpression':
+        findClassContexts(node.test)
+        collectClassValue([node.consequent, node.alternate])
+        return
+      // c && 'a', 'a' || c, c ?? 'a'
+      case 'LogicalExpression':
+        collectClassValue([node.left, node.right])
+        return
+      // ['a', c && 'b']
+      case 'ArrayExpression':
+        collectClassValue(node.elements)
+        return
+      // [...['a']], { ...{ k: 'a' } }
+      case 'SpreadElement':
+        collectClassValue(node.argument)
+        return
+      case 'ObjectExpression':
+        for (const property of node.properties as unknown[]) {
+          if (isNode(property) && isProperty(property)) {
+            // Keys are names (`base`, `size`), not classes; computed keys may hold `clsx(…)`
+            if (property.computed)
+              findClassContexts(property.key)
+            collectClassValue(property.value)
+          }
+          else {
+            collectClassValue(property)
+          }
+        }
+        return
+    }
+    // Any other expression: not a class, but may contain class contexts
+    findClassContexts(node)
+  }
+
+  function findClassContexts(root: unknown): void {
     walk(root, (node) => {
-      if (isStringLiteral(node)) {
-        result.strings.push(node)
-        return false
+      // <div className="…" />, className={'…'}, className={`…`}
+      if (node.type === 'JSXAttribute') {
+        const name = jsxAttributeName(node)
+        if (name && attributes.has(name)) {
+          const value = isNode(node.value) && node.value.type === 'JSXExpressionContainer'
+            ? node.value.expression
+            : node.value
+          collectClassValue(value)
+          return false
+        }
       }
-      if (isTemplateLiteral(node)) {
-        result.templates.push(node)
-        return false
+      // clsx(…), tv({ … })
+      if (node.type === 'CallExpression') {
+        const name = identifierName(node.callee)
+        if (name && functions.has(name)) {
+          collectClassValue(node.arguments)
+          return false
+        }
       }
-      // Object keys are names (`base`, `size`), not classes
-      if (node.type === 'Property' || node.type === 'ObjectProperty') {
-        collectClassContext(node.value)
-        return false
+      // tw`…`
+      if (node.type === 'TaggedTemplateExpression') {
+        const name = identifierName(node.tag)
+        if (name && functions.has(name) && isTemplateLiteral(node.quasi)) {
+          collectClassValue(node.quasi)
+          return false
+        }
       }
     })
   }
 
-  walk(ast, (node) => {
-    // <div className="…" />, className={'…'}, className={`…`}
-    if (node.type === 'JSXAttribute') {
-      const name = jsxAttributeName(node)
-      if (name && attributes.has(name)) {
-        const value = isNode(node.value) && node.value.type === 'JSXExpressionContainer'
-          ? node.value.expression
-          : node.value
-        collectClassContext(value)
-        return false
-      }
-    }
-    // clsx(…), tv({ … })
-    if (node.type === 'CallExpression') {
-      const name = identifierName(node.callee)
-      if (name && functions.has(name)) {
-        collectClassContext(node.arguments)
-        return false
-      }
-    }
-    // tw`…`
-    if (node.type === 'TaggedTemplateExpression') {
-      const name = identifierName(node.tag)
-      if (name && functions.has(name) && isTemplateLiteral(node.quasi)) {
-        result.templates.push(node.quasi)
-        return false
-      }
-    }
-  })
-
+  findClassContexts(ast)
   return result
 }

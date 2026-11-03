@@ -50,7 +50,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 
 ## U2: Correctness and edge cases (JS/TS)
 
-- [ ] Conditional / logical / array expressions inside class contexts: `cond ? 'a b' : 'c d'`, `[a && 'x y']`
+- [x] Conditional / logical / array expressions inside class contexts: `cond ? 'a b' : 'c d'`, `[a && 'x y']`
 - [ ] clsx-style object **keys**: `clsx({ 'p-4 flex': on })`. Sort keys only inside clsx-like functions, never inside `tv`/`cva`
 - [ ] Strings inside `${…}` of class template literals
 - [ ] `String.raw` templates (the ESLint rule supports them)

@@ -69,11 +69,15 @@ Open issue: the cache never invalidates. Editors keep Prettier alive between sav
 
 ## AST rewriting (`transform/`)
 
-**Collection.** A class string is collected when it is:
+**Collection.** A class context is:
 
 - the value of a JSX attribute listed in `unoAttributes`;
-- inside the arguments of a call to a function listed in `unoFunctions`, recursively through conditionals, logical expressions, arrays and object **values** (not keys);
+- an argument of a call to a function listed in `unoFunctions`;
 - the quasi of a tagged template whose tag is in `unoFunctions`.
+
+Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments and object property **values** (not keys). TypeScript wrappers (`as`, `satisfies`, `!`) are transparent. Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
+
+This is a superset of the ESLint `order` rule, which looks only one level deep (call arguments, and literals directly in JSX attributes).
 
 Strings are collected first and sorted after the walk, because sorting is async and mutating while walking is error-prone.
 

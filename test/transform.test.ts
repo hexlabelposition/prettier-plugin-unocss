@@ -103,6 +103,14 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       })
     })
 
+    it('sorts conditionals, logical expressions and arrays in expression containers', async () => {
+      await expectFormat(
+        '<a className={on ? "p-4 flex" : "mt-2 m-1"} />;',
+        '<a className={on ? "flex p-4" : "m-1 mt-2"} />;',
+      )
+      await expectFormat('<a className={on && "p-4 flex"} />;', '<a className={on && "flex p-4"} />;')
+    })
+
     it('sorts class functions inside other attributes', async () => {
       await expectFormat('<a data-x={clsx("p-4 flex")} />;', '<a data-x={clsx("flex p-4")} />;')
     })
@@ -118,6 +126,32 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
         'cn(on && "p-4 flex", on ? "p-4 flex" : "mt-2 m-1", ["p-4 flex"]);',
         'cn(on && "flex p-4", on ? "flex p-4" : "m-1 mt-2", ["flex p-4"]);',
       )
+    })
+
+    it('sorts nested conditionals, logical expressions and arrays', async () => {
+      await expectFormat(
+        'cn([on && "p-4 flex", [x ? "mt-2 m-1" : y ? "p-4 flex" : "mt-2 m-1"]]);',
+        'cn([on && "flex p-4", [x ? "m-1 mt-2" : y ? "flex p-4" : "m-1 mt-2"]]);',
+      )
+      await expectFormat('cn("p-4 flex" || x, x ?? "p-4 flex");', 'cn("flex p-4" || x, x ?? "flex p-4");')
+      await expectFormat('cn(...["p-4 flex"]);', 'cn(...["flex p-4"]);')
+    })
+
+    it('leaves strings outside class positions alone', async () => {
+      await expectUnchanged('cn(x === "p-4 flex" ? "flex p-4" : "");')
+      await expectUnchanged('cn(other("p-4 flex"));')
+      await expectUnchanged('cn(obj["p-4 flex"], obj.get("p-4 flex"));')
+      await expectUnchanged('cn("p-4 flex".split(" "));')
+      await expectUnchanged('cn(css`p-4 flex`);')
+      await expectUnchanged('cn({ ["p-4 flex"]: on });')
+      await expectUnchanged('<a className={x === "p-4 flex" ? "flex p-4" : ""} />;')
+      await expectUnchanged('<a className={other("p-4 flex")} />;')
+    })
+
+    it('finds class functions nested in other expressions', async () => {
+      await expectFormat('cn(merge(clsx("p-4 flex")));', 'cn(merge(clsx("flex p-4")));')
+      await expectFormat('cn(clsx("p-4 flex") ? "mt-2 m-1" : "");', 'cn(clsx("flex p-4") ? "m-1 mt-2" : "");')
+      await expectFormat('cn(`${clsx("p-4 flex")} mt-2 m-1`);', 'cn(`${clsx("flex p-4")} m-1 mt-2`);')
     })
 
     it('sorts object values but not keys', async () => {
