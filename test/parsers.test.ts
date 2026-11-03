@@ -104,6 +104,18 @@ describe('options', () => {
       .toBe('myCn("flex p-4");\nclsx("p-4 flex");\n')
   })
 
+  it('unoVariables', async () => {
+    expect(await fmt('const clsA = "p-4 flex";\nconst myStyle = "p-4 flex";', {
+      filepath: at('x.ts'),
+    }))
+      .toBe('const clsA = "flex p-4";\nconst myStyle = "p-4 flex";\n')
+    expect(await fmt('const clsA = "p-4 flex";\nconst myStyle = "p-4 flex";', {
+      filepath: at('x.ts'),
+      unoVariables: ['style$'],
+    }))
+      .toBe('const clsA = "p-4 flex";\nconst myStyle = "flex p-4";\n')
+  })
+
   it('unoConfig', async () => {
     // The file is next to a config without presets, but unoConfig points to wind3
     const filepath = join(configs, 'project', 'x.ts')

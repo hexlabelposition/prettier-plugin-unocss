@@ -216,6 +216,63 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
     })
   })
 
+  describe('variables', () => {
+    const variables = {
+      variables: ['^cls', 'classNames?$'],
+    }
+
+    it('sorts values of matching variables', async () => {
+      await expectFormat('const clsButton = "p-4 flex";', 'const clsButton = "flex p-4";', variables)
+      await expectFormat('const buttonClassName = `p-4 flex`;', 'const buttonClassName = `flex p-4`;', variables)
+      await expectFormat('const ButtonClassNames = on ? "p-4 flex" : "";', 'const ButtonClassNames = on ? "flex p-4" : "";', variables)
+      await expectFormat('const clsList = ["p-4 flex"];', 'const clsList = ["flex p-4"];', variables)
+    })
+
+    it('sorts object values but not keys', async () => {
+      await expectFormat(
+        'const classNames = { "p-4 flex": "p-4 flex", nested: { a: "mt-2 m-1" } };',
+        'const classNames = { "p-4 flex": "flex p-4", nested: { a: "m-1 mt-2" } };',
+        variables,
+      )
+    })
+
+    it('sorts values returned by functions', async () => {
+      await expectFormat(
+        'const clsItem = (on) => (on ? "p-4 flex" : "mt-2 m-1");',
+        'const clsItem = (on) => (on ? "flex p-4" : "m-1 mt-2");',
+        variables,
+      )
+      await expectFormat(
+        'const classNames = { item: function () { const x = "p-4 flex"; return "p-4 flex"; } };',
+        'const classNames = {\n  item: function () {\n    const x = "p-4 flex";\n    return "flex p-4";\n  },\n};',
+        variables,
+      )
+    })
+
+    it('leaves other values alone', async () => {
+      await expectUnchanged('const clsButton = other("p-4 flex");', variables)
+      await expectUnchanged('const clsButton = "p-4" + " flex m-1";', variables)
+      await expectUnchanged('const { clsButton = "p-4 flex" } = props;', variables)
+      await expectUnchanged('const clsButton = (on) => {\n  if (on) return "p-4 flex";\n};', variables)
+      await expectUnchanged('const button = "p-4 flex";', variables)
+    })
+
+    it('still finds class functions in values', async () => {
+      await expectFormat('const clsButton = clsx({ "p-4 flex": on });', 'const clsButton = clsx({ "flex p-4": on });', variables)
+      await expectFormat('const clsButton = merge(clsx("p-4 flex"));', 'const clsButton = merge(clsx("flex p-4"));', variables)
+    })
+
+    it('is off without the option', async () => {
+      await expectUnchanged('const clsButton = "p-4 flex";')
+    })
+
+    it('reports an invalid regular expression', async () => {
+      await expect(fmt('const a = "";', parser, {
+        variables: ['('],
+      })).rejects.toThrow(/Invalid regular expression in unoVariables: "\("/)
+    })
+  })
+
   describe('strings', () => {
     it('keeps unknown classes first and sorts variant groups', async () => {
       await expectFormat(

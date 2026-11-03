@@ -25,6 +25,11 @@ export interface CollectOptions {
   attributes: readonly string[]
   /** Functions whose arguments hold classes (`unoFunctions`). */
   functions: readonly string[]
+  /**
+   * Regular expressions (case-insensitive) for variable names whose value
+   * holds classes (`unoVariables`). Optional: no variables by default.
+   */
+  variables?: readonly string[]
 }
 
 /**
@@ -59,6 +64,23 @@ function identifierName(node: unknown): string | undefined {
   return isNode(node) && node.type === 'Identifier' && typeof node.name === 'string'
     ? node.name
     : undefined
+}
+
+function compileVariables(patterns: readonly string[]): RegExp[] {
+  return patterns.map((pattern) => {
+    try {
+      return new RegExp(pattern, 'i')
+    }
+    catch (error) {
+      throw new Error(`[prettier-plugin-unocss] Invalid regular expression in unoVariables: ${JSON.stringify(pattern)}`, { cause: error })
+    }
+  })
+}
+
+type FunctionNode = AstNode & { body: unknown }
+
+function isFunction(node: AstNode): node is FunctionNode {
+  return node.type === 'ArrowFunctionExpression' || node.type === 'FunctionExpression'
 }
 
 /** `String.raw`, but not `String['raw']` or `obj.String.raw`. */
@@ -158,7 +180,8 @@ function staticKeyName(property: AstNode): string | undefined {
  *
  * - the value of a JSX attribute from `attributes`;
  * - an argument of a call to a function from `functions`;
- * - the template of a tagged template whose tag is in `functions`.
+ * - the template of a tagged template whose tag is in `functions`;
+ * - the value of a variable whose name matches `variables`.
  *
  * Inside such a class context, classes are taken from the branches of
  * conditionals (`c ? 'a' : 'b'`, not the test), both sides of logical
@@ -181,7 +204,56 @@ function staticKeyName(property: AstNode): string | undefined {
 export function collectClassNodes(ast: unknown, options: CollectOptions): ClassNodes {
   const attributes = new Set(options.attributes)
   const functions = new Set(options.functions)
+  const variables = compileVariables(options.variables ?? [])
   const result: ClassNodes = { strings: [], templates: [], keyGroups: [] }
+
+  /**
+   * The value of a class variable, as in the ESLint rule: a class value, an
+   * object whose values are class variable values (`{ button: '…' }`), or a
+   * function returning one (`(on) => on ? '…' : '…'`). Calls of functions
+   * that are not in `functions` are not class positions: their arguments may
+   * be anything (`const clsx = require('clsx')`).
+   */
+  function collectVariableValue(node: unknown): void {
+    if (!isNode(node))
+      return
+    if (TRANSPARENT_TYPES.has(node.type)) {
+      collectVariableValue(node.expression)
+      return
+    }
+    if (node.type === 'ObjectExpression') {
+      for (const property of node.properties as unknown[]) {
+        if (isNode(property) && isProperty(property)) {
+          // Keys are names (`button`), not classes
+          if (property.computed)
+            findClassContexts(property.key)
+          collectVariableValue(property.value)
+        }
+        else {
+          collectClassValue(property, false)
+        }
+      }
+      return
+    }
+    if (isFunction(node)) {
+      findClassContexts(node.params)
+      const body = node.body
+      if (isNode(body) && body.type === 'BlockStatement') {
+        // Only top-level `return`s, like the ESLint rule
+        for (const statement of body.body as unknown[]) {
+          if (isNode(statement) && statement.type === 'ReturnStatement')
+            collectVariableValue(statement.argument)
+          else
+            findClassContexts(statement)
+        }
+      }
+      else {
+        collectVariableValue(body)
+      }
+      return
+    }
+    collectClassValue(node, false)
+  }
 
   /** `keys`: object keys are classes too (inside clsx-like functions). */
   function collectClassValue(node: unknown, keys: boolean): void {
@@ -291,6 +363,14 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
         const name = identifierName(node.callee)
         if (name && functions.has(name)) {
           collectClassValue(node.arguments, !VARIANT_FUNCTIONS.has(name))
+          return false
+        }
+      }
+      // const clsButton = '…'
+      if (node.type === 'VariableDeclarator' && variables.length) {
+        const name = identifierName(node.id)
+        if (name && variables.some(regex => regex.test(name))) {
+          collectVariableValue(node.init)
           return false
         }
       }

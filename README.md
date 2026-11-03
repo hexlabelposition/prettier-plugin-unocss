@@ -36,9 +36,11 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 
 - JSX attributes `class` and `className`
 - String arguments of `clsx`, `cn`, `cx`, `classnames`, `tv`, `cva`
-- Object **values** inside those calls, e.g. every string in `tv({ base, variants })`
-- Tagged templates of the functions above, e.g. ``tw`...` ``
-- Template literals, keeping fragments glued to `${…}` (like `bg-${color}`) in place
+- Inside those: branches of `cond ? 'a' : 'b'`, both sides of `&&` / `||` / `??`, arrays, object **values**
+- Object **keys** in clsx-like functions: `clsx({ 'p-4 flex': on })`, but never in `tv` / `cva`, where keys are names
+- Tagged templates of the functions above, e.g. ``tw`...` ``, and ``String.raw`...` ``
+- Template literals, keeping fragments glued to `${…}` (like `bg-${color}`) in place; strings inside a standalone `${…}` are sorted too
+- Values of variables whose name matches `unoVariables`: `const clsButton = '…'`, `const buttonClassNames = { … }`
 
 ## How classes are ordered
 
@@ -49,11 +51,12 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 
 ## Options
 
-| Option          | Default                                           | Description                                 |
-| --------------- | ------------------------------------------------- | ------------------------------------------- |
-| `unoConfig`     | auto                                              | Path to the UnoCSS config file              |
-| `unoAttributes` | `["class", "className"]`                          | JSX attributes whose value is sorted        |
-| `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose string arguments are sorted |
+| Option          | Default                                           | Description                                                         |
+| --------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
+| `unoConfig`     | auto                                              | Path to the UnoCSS config file                                      |
+| `unoAttributes` | `["class", "className"]`                          | JSX attributes whose value is sorted                                |
+| `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose string arguments are sorted                         |
+| `unoVariables`  | `["^cls", "classNames?$"]`                        | Regular expressions (case-insensitive) for variable names to sort   |
 
 ## Supported languages
 

@@ -5,7 +5,7 @@ import { parsers as babelParsers } from 'prettier/plugins/babel'
 import { parsers as meriyahParsers } from 'prettier/plugins/meriyah'
 import { parsers as typescriptParsers } from 'prettier/plugins/typescript'
 import { getGenerator } from './generator'
-import { DEFAULT_ATTRIBUTES, DEFAULT_FUNCTIONS } from './options'
+import { DEFAULT_ATTRIBUTES, DEFAULT_FUNCTIONS, DEFAULT_VARIABLES } from './options'
 import { sortClassesInAst } from './transform'
 
 type Options = ParserOptions & PluginOptions
@@ -26,6 +26,7 @@ export function withSorting(parser: Parser): Parser {
         await sortClassesInAst(ast, uno, {
           attributes: options.unoAttributes ?? DEFAULT_ATTRIBUTES,
           functions: options.unoFunctions ?? DEFAULT_FUNCTIONS,
+          variables: options.unoVariables ?? DEFAULT_VARIABLES,
         })
       }
       return ast

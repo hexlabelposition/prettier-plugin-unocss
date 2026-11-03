@@ -73,7 +73,8 @@ Open issue: the cache never invalidates. Editors keep Prettier alive between sav
 
 - the value of a JSX attribute listed in `unoAttributes`;
 - an argument of a call to a function listed in `unoFunctions`;
-- the quasi of a tagged template whose tag is in `unoFunctions`.
+- the quasi of a tagged template whose tag is in `unoFunctions`;
+- the value of a variable whose name matches a regex from `unoVariables` (case-insensitive, like the ESLint rule): a class value, an object whose values are such values (keys are names), or a function returning one (top-level `return`s only). Calls of other functions are not class positions here, unlike in the ESLint rule: their arguments may be anything (`const clsx = require('clsx')`).
 
 Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments, object property **values**, and template expressions that stand apart from the text around them (`` `p-4 ${on ? 'a b' : ''}` ``). TypeScript wrappers (`as`, `satisfies`, `!`) are transparent, and `` String.raw`…` `` is handled like a plain template literal (as in the ESLint rule). Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
 
