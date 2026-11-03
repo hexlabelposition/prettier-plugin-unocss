@@ -251,6 +251,38 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectUnchanged('clsx(`bg-${c}`);')
     })
 
+    it('sorts strings in expressions separated by spaces', async () => {
+      await expectFormat(
+        'clsx(`p-4 ${on ? "p-4 flex" : "mt-2 m-1"} mt-1`);',
+        'clsx(`p-4 ${on ? "flex p-4" : "m-1 mt-2"} mt-1`);',
+      )
+      await expectFormat('clsx(`${on && "p-4 flex"}`);', 'clsx(`${on && "flex p-4"}`);')
+      await expectFormat('<a className={`${"p-4 flex"} ${x}`} />;', '<a className={`${"flex p-4"} ${x}`} />;')
+      await expectFormat('tw`p-4 ${on ? "p-4 flex" : ""}`;', 'tw`p-4 ${on ? "flex p-4" : ""}`;', {
+        functions: ['tw'],
+      })
+    })
+
+    it('sorts nested template literals in expressions', async () => {
+      await expectFormat(
+        'clsx(`p-4 ${on ? `p-4 flex ${x}` : ""}`);',
+        'clsx(`p-4 ${on ? `flex p-4 ${x}` : ""}`);',
+      )
+    })
+
+    it('leaves strings in expressions glued to text alone', async () => {
+      await expectUnchanged('clsx(`text-${on ? "red-500 font-bold" : "blue-500"}`);')
+      await expectUnchanged('clsx(`${on ? "p-4 flex" : ""}-500`);')
+      await expectUnchanged('clsx(`${a}${on ? "p-4 flex" : ""}`);')
+      await expectUnchanged('clsx(`${on ? "p-4 flex" : ""}${a}`);')
+    })
+
+    it('leaves strings in other expressions alone', async () => {
+      await expectUnchanged('clsx(`p-4 ${x === "p-4 flex" ? "flex" : ""}`);')
+      await expectUnchanged('clsx(`p-4 ${other("p-4 flex")}`);')
+      await expectUnchanged('other(`p-4 ${on ? "p-4 flex" : ""}`);')
+    })
+
     it('skips chunks with escapes', async () => {
       await expectUnchanged('clsx(`p-4 flex \\n`);')
     })

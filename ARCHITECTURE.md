@@ -75,7 +75,7 @@ Open issue: the cache never invalidates. Editors keep Prettier alive between sav
 - an argument of a call to a function listed in `unoFunctions`;
 - the quasi of a tagged template whose tag is in `unoFunctions`.
 
-Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments and object property **values**. TypeScript wrappers (`as`, `satisfies`, `!`) are transparent. Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
+Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments, object property **values**, and template expressions that stand apart from the text around them (`` `p-4 ${on ? 'a b' : ''}` ``). TypeScript wrappers (`as`, `satisfies`, `!`) are transparent. Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
 
 **Object keys** are classes inside clsx-like functions (`clsx({ 'p-4 flex': on })`), but names in `tv` and `cva` (`tv({ base: '…' })`) and in JSX attributes, where they are never touched. The variant functions are a fixed list (`tv`, `cva`) in `collect.ts`. Only static keys are sorted (`'a b'`, `['a b']`, `` [`a b`] ``), and only in objects without spreads. The keys of one object are sorted as a group: if sorting would make two keys equal (`{ 'p-4 flex': a, 'flex p-4': b }`), the later one would override the earlier one, so the whole object's keys are left alone.
 
@@ -85,7 +85,9 @@ Strings are collected first and sorted after the walk, because sorting is async 
 
 **Rewriting.** Prettier printers print string literals from their **raw** source text (to keep quotes and escapes), so we update `value`, `raw` and Babel's `extra.raw` / `extra.rawValue` together, keeping the original quote character.
 
-**Template literals.** A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chunk `p-2 bg-` ends with a partial class. Glued fragments at the edges of a chunk are kept in place; only whole classes in between are sorted. Leading/trailing whitespace of each chunk is preserved, because it separates classes from expressions.
+**Template literals.** An expression is a class position only when whitespace or the template's edge is on both sides of it. In `` `bg-${on ? 'red-500 x' : 'blue-500'}` `` the strings are fragments of the class `bg-…`, and sorting them would change the class, so they are left alone (nested `clsx(…)` calls are still sorted).
+
+A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chunk `p-2 bg-` ends with a partial class. Glued fragments at the edges of a chunk are kept in place; only whole classes in between are sorted. Leading/trailing whitespace of each chunk is preserved, because it separates classes from expressions.
 
 **Safety rule.** When unsure, don't touch. Strings with quotes or backslashes inside are currently skipped. A wrong sort is worse than no sort: formatting must never change behaviour.
 
@@ -102,7 +104,6 @@ Strings are collected first and sorted after the walk, because sorting is async 
 ## Known limitations
 
 - Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, prettier-plugin-svelte, …) needs a compatibility layer.
-- Strings inside `${…}` of a template literal are not sorted.
 - Attributify mode is not supported.
 
 ## References

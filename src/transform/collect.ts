@@ -89,6 +89,25 @@ function isProperty(node: AstNode): boolean {
   return node.type === 'Property' || node.type === 'ObjectProperty'
 }
 
+/**
+ * Whether the `i`-th expression of a template stands apart from its
+ * neighbours: whitespace or the template's edge on both sides. Otherwise its
+ * value is glued to text or another expression (`bg-${c}`, `${a}${b}`).
+ */
+function isSeparatedExpression(node: TemplateLiteralNode, i: number): boolean {
+  const before = node.quasis[i]?.value.raw
+  const after = node.quasis[i + 1]?.value.raw
+  if (before === undefined || after === undefined)
+    return false
+  const left = i === 0
+    ? before === '' || /\s$/.test(before)
+    : /\s$/.test(before)
+  const right = i + 1 === node.quasis.length - 1
+    ? after === '' || /^\s/.test(after)
+    : /^\s/.test(after)
+  return left && right
+}
+
 function isSimpleTemplate(node: unknown): node is TemplateLiteralNode {
   return isTemplateLiteral(node) && node.expressions.length === 0 && node.quasis.length === 1
 }
@@ -135,8 +154,10 @@ function staticKeyName(property: AstNode): string | undefined {
  * Inside such a class context, classes are taken from the branches of
  * conditionals (`c ? 'a' : 'b'`, not the test), both sides of logical
  * expressions (`c && 'a'`), array elements and object property **values**
- * (and keys, see below), recursively. Any other
- * expression (`a === 'x'`, `other('x')`, `obj['x']`) is not a class position;
+ * (and keys, see below) and template expressions separated from their
+ * neighbours by whitespace (`` `p-4 ${on ? 'a b' : ''}` ``), recursively.
+ * Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, the glued
+ * `` `bg-${c ? 'red' : 'blue'}` ``) is not a class position;
  * its strings are left alone, but it is still searched for nested class
  * contexts such as `clsx(…)`.
  *
@@ -172,8 +193,14 @@ export function collectClassNodes(ast: unknown, options: CollectOptions): ClassN
     }
     if (isTemplateLiteral(node)) {
       result.templates.push(node)
-      // Strings inside `${…}` are not class positions (yet), but may hold `clsx(…)`
-      findClassContexts(node.expressions)
+      for (const [i, expression] of node.expressions.entries()) {
+        // `p-4 ${on ? 'a b' : ''}`: the expression holds whole classes
+        if (isSeparatedExpression(node, i))
+          collectClassValue(expression, false)
+        // `text-${on ? 'red-500' : 'blue-500'}`: fragments of a class; may still hold `clsx(…)`
+        else
+          findClassContexts(expression)
+      }
       return
     }
     switch (node.type) {
