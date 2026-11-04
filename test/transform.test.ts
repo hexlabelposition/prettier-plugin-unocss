@@ -338,6 +338,14 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectUnchanged('clsx("p-4\u00A0flex mt-1");')
     })
 
+    it('skips strings where a variant group would change', async () => {
+      // Not a group UnoCSS knows: expanded to `w---x`, an unknown class
+      await expectUnchanged('clsx("w-(--x) p-4 flex");')
+      // `hover:foo` is unknown and stays expanded, `hover:p-4` alone is not a group
+      await expectUnchanged('clsx("hover:(foo p-4) flex");')
+      await expectFormat('clsx("hover:(p-4 flex) m-1");', 'clsx("m-1 hover:(flex p-4)");')
+    })
+
     it('skips variant groups that would need new escapes', async () => {
       await expectUnchanged(String.raw`clsx('hover:(content-["x"] p-4) flex');`)
     })

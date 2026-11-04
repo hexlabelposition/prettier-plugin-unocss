@@ -1,4 +1,5 @@
 import type { UnoGenerator } from '@unocss/core'
+import { parseVariantGroup } from '@unocss/core'
 import { sortPreservingEdges } from '../sort'
 
 /**
@@ -113,7 +114,8 @@ export function decodeEscapes(raw: string): Unit[] | undefined {
 /**
  * Splits the source text of a JSX attribute string (without quotes) into
  * units. JSX strings have no backslash escapes, only HTML entities; only the
- * common ones are decoded, anything else returns `undefined`.
+ * common ones are decoded. Anything else that looks like an entity (`&nbsp;`,
+ * `&#x;`) returns `undefined`; a bare `&` (`[&>svg]:size-4`) is a character.
  *
  * Units are decoded fully, as at runtime and as Prettier prints them
  * (`&quot;` → `"`), even though Prettier's parsers keep named entities in
@@ -169,13 +171,60 @@ function isWhitespace(unit: Unit): boolean {
 }
 
 /**
+ * Splits a class list at whitespace outside of `(…)` and `[…]`, so that a
+ * variant group `hover:(a b)` is one item.
+ */
+function splitTopLevel(text: string): string[] {
+  const items: string[] = []
+  let item = ''
+  let depth = 0
+  for (const ch of text) {
+    if (ch === '(' || ch === '[')
+      depth++
+    else if ((ch === ')' || ch === ']') && depth)
+      depth--
+    if (/\s/.test(ch) && !depth) {
+      if (item)
+        items.push(item)
+      item = ''
+    }
+    else {
+      item += ch
+    }
+  }
+  if (item)
+    items.push(item)
+  return items
+}
+
+/**
+ * Whether sorting changed a class instead of only moving it: every item of
+ * the result must be in the input or be a variant group, regrouped. A
+ * variant group is expanded for sorting and only known classes are grouped
+ * back: `w-(--x)` (not a group UnoCSS knows) comes back as `w---x`, and
+ * `hover:(foo p-4)` as `hover:foo hover:p-4`.
+ */
+function changesClasses(input: string, sorted: string): boolean {
+  const items = splitTopLevel(input)
+  return splitTopLevel(sorted).some((item) => {
+    const i = items.indexOf(item)
+    if (i !== -1) {
+      items.splice(i, 1)
+      return false
+    }
+    return !parseVariantGroup(item).prefixes.length
+  })
+}
+
+/**
  * Sorts the classes in `units` and spells the result in source text.
  *
  * Every whitespace-separated piece of the sorted value that is in the source
  * gets its original spelling back, escapes included (`content-[\"x\"]`). A
  * new piece (a variant group collapsed differently: `hover:(a b)`) is written
  * as is, unless it contains a character matching `unsafe` (a quote, a
- * backslash, …) that would need escaping.
+ * backslash, …) that would need escaping. When sorting changes a class
+ * instead of moving it (see {@link changesClasses}), the text is left alone.
  *
  * Whitespace between classes, line breaks and escapes (`\n`) included, is
  * collapsed to single spaces, like the ESLint rule does. Other whitespace
@@ -221,6 +270,8 @@ export async function sortUnits(units: readonly Unit[], uno: UnoGenerator, unsaf
 
   const value = cookedText(units)
   let sorted = await sortPreservingEdges(value, uno)
+  if (changesClasses(value, sorted))
+    return undefined
   if (trimLineBreaks) {
     // `"\n  p-4\n  flex\n"` → `"flex p-4"`, not `" flex p-4 "`
     if (/^\s*[\n\r]/.test(value))
