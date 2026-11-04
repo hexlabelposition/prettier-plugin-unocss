@@ -66,7 +66,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 
 - [ ] Cache invalidation: reload the generator when `uno.config.*` (or its imports, see `sources` from `loadConfig`) changes; check mtime
 - [ ] Icons preset: avoid loading icon collections during sorting (the ESLint plugin sets `process.env.ESLINT`); find a clean equivalent
-- [ ] Clear error when the config fails to load (show the path and the cause, don't crash Prettier silently)
+- [x] Clear error when the config fails to load (show the path and the cause, don't crash Prettier silently)
 - [ ] Benchmark: format N files, measure first-file and per-file cost; add the numbers to the README
 
 ## U4: Other languages
