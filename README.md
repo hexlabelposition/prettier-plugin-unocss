@@ -49,6 +49,8 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 3. Utilities with variants (`hover:`, `md:`, `dark:`) go after those without; more variants → further back.
 4. Variant groups `hover:(a b)` are sorted inside and kept collapsed.
 
+Duplicate classes are kept (`p-4 flex p-4` → `flex p-4 p-4`), as with the UnoCSS `order` rule.
+
 Whitespace between classes is collapsed to single spaces, so a class list split over several lines ends up on one line, as with `eslint --fix` and the UnoCSS `order` rule. A line break at the start or end of a string is dropped; in a template literal it becomes one space, which may separate classes from `${…}`.
 
 ## Options

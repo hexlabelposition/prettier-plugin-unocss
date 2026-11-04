@@ -57,7 +57,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 - [x] `unoVariables` option, like the ESLint rule: sort string values assigned to variables matching regexes (`^cls`, `classNames?$`)
 - [x] Strings with quotes / escapes: handle correctly instead of skipping, with tests for `'`, `"`, `\\`
 - [x] Multiline class strings: decide (keep line breaks or collapse?) and document
-- [ ] Duplicate classes: decide whether to remove (the ESLint rule doesn't) and document
+- [x] Duplicate classes: decide whether to remove (the ESLint rule doesn't) and document
 - [ ] Compare output with `@unocss/eslint-plugin` on a corpus of real files; add mismatches as fixtures
 
 **Done when:** a shared fixture set gives identical results with this plugin and with `eslint --fix` using `@unocss/order`.

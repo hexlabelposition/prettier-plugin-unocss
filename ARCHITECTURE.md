@@ -93,6 +93,8 @@ Skipped on purpose: escaped whitespace other than HTML whitespace (`\v`, `\u00A0
 
 **Whitespace and multiline strings.** Whitespace between classes, line breaks and escaped whitespace (`\n`, `\t`) included, is collapsed to single spaces, so a class list split over several lines ends up on one line. The ESLint rule does the same, and keeping the line breaks would need a layout decision (which class goes on which line) with no right answer. At the edges: in strings, whitespace with a line break is dropped (`"\n  p-4 flex\n"` → `"flex p-4"`, as the ESLint rule trims) and other whitespace stays as one space; in template chunks it always stays as one space, because it separates classes from expressions. Only HTML whitespace (space, `\t`, `\n`, `\f`, `\r`) separates classes in the browser, while UnoCSS splits at any whitespace: a string with other whitespace (`\u00A0`, `\v`, escaped or not) is left alone.
 
+**Duplicates.** Duplicate classes are kept and sorted next to each other (`p-4 flex p-4` → `flex p-4 p-4`), each with its own spelling. Removing them would not match the ESLint rule, would change string values that code may rely on (comparisons, object keys, where it could also make two keys equal), and could only be done within one string: duplicates across template chunks, `clsx` arguments or conditional branches would stay anyway. Linting duplicates is a job for a lint rule, not for the formatter.
+
 **Template literals.** An expression is a class position only when whitespace or the template's edge is on both sides of it. In `` `bg-${on ? 'red-500 x' : 'blue-500'}` `` the strings are fragments of the class `bg-…`, and sorting them would change the class, so they are left alone (nested `clsx(…)` calls are still sorted).
 
 A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chunk `p-2 bg-` ends with a partial class. Glued fragments at the edges of a chunk are kept in place; only whole classes in between are sorted. Leading/trailing whitespace of each chunk is preserved, because it separates classes from expressions.
@@ -108,6 +110,7 @@ A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chun
 | Same ordering as the ESLint rule                  | Predictable for UnoCSS users; one source of truth                                                           |
 | No config → no-op                                 | Guessing presets would produce wrong orders silently                                                        |
 | Object keys only in clsx-like functions           | In `tv`/`cva` keys are names (`base`, `size`), not classes                                                  |
+| Duplicate classes are kept                        | Same as the ESLint rule; see Duplicates above                                                                |
 
 ## Known limitations
 
