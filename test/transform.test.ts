@@ -319,6 +319,11 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectFormat(String.raw`clsx("p-4\x20flex\u{A}mt-1");`, 'clsx("mt-1 flex p-4");')
     })
 
+    it('keeps duplicates with their own spellings', async () => {
+      await expectFormat(String.raw`clsx("p-4 \x66lex flex mt-1");`, String.raw`clsx("mt-1 \x66lex flex p-4");`)
+      await expectFormat(String.raw`clsx("flex p-4 \x66lex mt-1");`, String.raw`clsx("mt-1 flex \x66lex p-4");`)
+    })
+
     it('drops edge whitespace with a line break', async () => {
       await expectFormat(String.raw`clsx("\n  p-4 flex\n");`, 'clsx("flex p-4");')
       // Already sorted, only the layout changes

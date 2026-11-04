@@ -53,6 +53,8 @@ describe('sortClasses', () => {
 
   it('keeps duplicates', async () => {
     expect(await sort('p-4 flex p-4')).toBe('flex p-4 p-4')
+    expect(await sort('foo p-4 foo')).toBe('foo foo p-4')
+    expect(await sort('hover:(p-4 flex p-4) p-4')).toBe('p-4 hover:(flex p-4 p-4)')
   })
 
   it('is idempotent', async () => {
