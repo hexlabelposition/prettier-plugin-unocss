@@ -39,9 +39,16 @@ describe('decodeJsxEntities', () => {
     expect(jsxParserValue(units)).toBe('&quot;&apos;&amp;&lt;&gt; AB a\\b')
   })
 
+  it('keeps a bare ampersand', () => {
+    const raw = '[&>svg]:size-4 a & b &amp_x &a-b;'
+    const units = decodeJsxEntities(raw)!
+    expect(cookedText(units)).toBe(raw)
+    expect(jsxParserValue(units)).toBe(raw)
+  })
+
   it.each([
     ['unknown entity', '&nbsp;'],
-    ['bare ampersand', 'a & b'],
+    ['malformed numeric entity', '&#x;'],
   ])('rejects %s', (_, raw) => {
     expect(decodeJsxEntities(raw)).toBeUndefined()
   })

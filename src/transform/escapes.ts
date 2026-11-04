@@ -124,7 +124,8 @@ export function decodeJsxEntities(raw: string): Unit[] | undefined {
   let i = 0
   while (i < raw.length) {
     const ch = raw[i]!
-    if (ch !== '&') {
+    // A bare `&` is just a character: `[&>svg]:size-4`
+    if (ch !== '&' || !/^&(?:#|[a-z\d]+;)/i.test(raw.slice(i))) {
       units.push({ raw: ch, cooked: ch })
       i++
       continue
