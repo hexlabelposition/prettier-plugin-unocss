@@ -81,6 +81,8 @@ pnpm play        # format playground/ with the local build
 pnpm lint
 ```
 
+`test/eslint.test.ts` checks that every fixture gives the same result as `eslint --fix` with the UnoCSS `order` rule, except for the documented differences. To compare on real files: `CORPUS=path/to/project pnpm vitest run test/eslint-corpus.test.ts`.
+
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for how the plugin works and [`BACKLOG.md`](./BACKLOG.md) for what's next.
 
 ## Disclaimer

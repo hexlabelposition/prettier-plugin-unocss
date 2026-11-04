@@ -46,6 +46,8 @@
     "@antfu/eslint-config": "^10.0.0",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
+    "@typescript-eslint/parser": "^8.72.1",
+    "@unocss/eslint-plugin": "^66.12.0",
     "clsx": "^2.1.1",
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",
