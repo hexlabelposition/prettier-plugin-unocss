@@ -53,7 +53,7 @@ async function sortString(node: StringLiteralNode, uno: UnoGenerator, jsx = fals
 
   return sortUnits(units, uno, jsx
     ? JSX_UNSAFE
-    : STRING_UNSAFE)
+    : STRING_UNSAFE, true)
 }
 
 function keyValue(node: StringLiteralNode | TemplateLiteralNode): string | null | undefined {

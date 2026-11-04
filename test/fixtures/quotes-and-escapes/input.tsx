@@ -9,5 +9,3 @@ export function Quote({ on }: { on: boolean }) {
   );
 }
 
-// Escaped whitespace: left alone until multiline strings are decided
-export const lines = clsx("p-4\nflex mt-1");

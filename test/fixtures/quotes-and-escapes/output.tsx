@@ -15,6 +15,3 @@ export function Quote({ on }: { on: boolean }) {
     </blockquote>
   );
 }
-
-// Escaped whitespace: left alone until multiline strings are decided
-export const lines = clsx("p-4\nflex mt-1");

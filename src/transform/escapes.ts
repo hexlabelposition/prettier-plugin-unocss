@@ -27,6 +27,10 @@ const SIMPLE_ESCAPES: Record<string, string> = {
 
 const LINE_TERMINATORS = new Set(['\n', '\r', '\u2028', '\u2029'])
 
+// Whitespace that separates classes in the `class` attribute (ASCII whitespace
+// in the HTML spec). Escaped (`\n`, `\t`) or not, it becomes a single space.
+const HTML_WHITESPACE = /^[ \t\n\f\r]+$/
+
 const JSX_ENTITIES: Record<string, string> = {
   quot: '"',
   apos: '\'',
@@ -172,15 +176,25 @@ function isWhitespace(unit: Unit): boolean {
  * as is, unless it contains a character matching `unsafe` (a quote, a
  * backslash, …) that would need escaping.
  *
+ * Whitespace between classes, line breaks and escapes (`\n`) included, is
+ * collapsed to single spaces, like the ESLint rule does. Other whitespace
+ * (`\u00A0`, `\v`) is part of a class for the browser: then the text is left
+ * alone.
+ *
  * `unsafe` must not depend on the quote character of the string: Prettier
  * may change it, and the next format must take the same decision.
+ *
+ * `trimLineBreaks`: drop whitespace at an edge that has a line break, instead
+ * of keeping a single space. For strings, where it is only layout; template
+ * chunks keep it, as it may separate classes from expressions.
  *
  * Returns `undefined` when nothing changes or when the result can't be spelled
  * safely: then the text is left alone.
  */
-export async function sortUnits(units: readonly Unit[], uno: UnoGenerator, unsafe: RegExp): Promise<SortedText | undefined> {
-  // Escaped whitespace (`\n`, `\t`) separates classes, but would become a space
-  if (units.some(unit => unit.raw !== unit.cooked && /\s/.test(unit.cooked)))
+export async function sortUnits(units: readonly Unit[], uno: UnoGenerator, unsafe: RegExp, trimLineBreaks = false): Promise<SortedText | undefined> {
+  // UnoCSS splits classes at any whitespace, the browser only at HTML
+  // whitespace: in `p-4\u00A0flex` the browser sees one class
+  if (units.some(unit => /\s/.test(unit.cooked) && !HTML_WHITESPACE.test(unit.cooked)))
     return undefined
 
   // Original spellings of the pieces, by value
@@ -205,7 +219,14 @@ export async function sortUnits(units: readonly Unit[], uno: UnoGenerator, unsaf
   flush()
 
   const value = cookedText(units)
-  const sorted = await sortPreservingEdges(value, uno)
+  let sorted = await sortPreservingEdges(value, uno)
+  if (trimLineBreaks) {
+    // `"\n  p-4\n  flex\n"` → `"flex p-4"`, not `" flex p-4 "`
+    if (/^\s*[\n\r]/.test(value))
+      sorted = sorted.trimStart()
+    if (/[\n\r]\s*$/.test(value))
+      sorted = sorted.trimEnd()
+  }
   if (sorted === value)
     return undefined
 

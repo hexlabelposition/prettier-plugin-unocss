@@ -313,9 +313,24 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectFormat(String.raw`clsx("p-4 mt-1 \x66lex");`, String.raw`clsx("mt-1 \x66lex p-4");`)
     })
 
-    it('skips strings with escaped whitespace', async () => {
-      await expectUnchanged(String.raw`clsx("p-4\nflex mt-1");`)
-      await expectUnchanged(String.raw`clsx("p-4\tflex mt-1");`)
+    it('collapses escaped whitespace', async () => {
+      await expectFormat(String.raw`clsx("p-4\nflex mt-1");`, 'clsx("mt-1 flex p-4");')
+      await expectFormat(String.raw`clsx("p-4\tflex\r\n mt-1\f");`, 'clsx("mt-1 flex p-4 ");')
+      await expectFormat(String.raw`clsx("p-4\x20flex\u{A}mt-1");`, 'clsx("mt-1 flex p-4");')
+    })
+
+    it('drops edge whitespace with a line break', async () => {
+      await expectFormat(String.raw`clsx("\n  p-4 flex\n");`, 'clsx("flex p-4");')
+      // Already sorted, only the layout changes
+      await expectFormat(String.raw`clsx(" flex\np-4\n");`, 'clsx(" flex p-4");')
+      await expectFormat('<a className="\n  p-4\n  flex\n" />;', '<a className="flex p-4" />;')
+    })
+
+    it('skips whitespace the browser does not split classes at', async () => {
+      await expectUnchanged(String.raw`clsx("p-4\u00A0flex mt-1");`)
+      await expectUnchanged(String.raw`clsx("p-4\vflex mt-1");`)
+      // A literal no-break space, not an escape
+      await expectUnchanged('clsx("p-4\u00A0flex mt-1");')
     })
 
     it('skips variant groups that would need new escapes', async () => {
@@ -391,8 +406,14 @@ describe.each(parserNames)('sortClassesInAst (%s)', (parser) => {
       await expectFormat('clsx(`content-[\'x\'] p-4 flex`);', 'clsx(`flex p-4 content-[\'x\']`);')
     })
 
-    it('skips chunks with escaped whitespace', async () => {
-      await expectUnchanged('clsx(`p-4 flex \\n`);')
+    it('collapses line breaks', async () => {
+      await expectFormat('clsx(`\n  p-4\n  flex\n`);', 'clsx(` flex p-4 `);')
+      await expectFormat('clsx(`p-4 flex \\n`);', 'clsx(`flex p-4 `);')
+      await expectFormat('clsx(`\n  p-4 ${x}\n  mt-1\n  m-1\n`);', 'clsx(` p-4 ${x} m-1 mt-1 `);')
+    })
+
+    it('skips whitespace the browser does not split classes at', async () => {
+      await expectUnchanged('clsx(`p-4\\u00A0flex mt-1`);')
     })
   })
 })
