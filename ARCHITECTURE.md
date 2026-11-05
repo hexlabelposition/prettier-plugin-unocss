@@ -40,13 +40,14 @@ src/
     rewrite.ts    Writes sorted strings back (value + raw)
     template.ts   Template literal handling
     escapes.ts    Escapes and JSX entities: source text ↔ value
+    html.ts       HTML: static `class` in Prettier's HTML AST (shared with Vue)
     vue.ts        Vue templates: `class` and `:class` in Prettier's HTML AST
   options.ts      Option definitions and their types
 ```
 
 Dependency direction: `index → parsers → (generator, transform) → sort`. `sort.ts` knows nothing about Prettier or ASTs; `transform/` knows nothing about UnoCSS internals beyond calling `sort`.
 
-> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`vue.ts`; HTML, Svelte, Astro later).
+> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`html.ts`, `vue.ts`; Svelte, Astro later).
 
 ## Ordering algorithm (`sort.ts`)
 
@@ -109,14 +110,17 @@ A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chun
 
 **Safety rule.** When unsure, don't touch. A wrong sort is worse than no sort: formatting must never change behaviour.
 
-## Vue (`transform/vue.ts`)
+## HTML and Vue (`transform/html.ts`, `transform/vue.ts`)
 
-The `vue` parser (Prettier's HTML parser in Vue mode) is wrapped like the JS ones. `<script>` blocks need nothing extra: Prettier formats them with the `babel` / `typescript` parsers, which are ours. In the template:
+The `html` and `vue` parsers (Prettier's HTML parser, in Vue mode for `vue`) are wrapped like the JS ones. `<script>` blocks need nothing extra: Prettier formats them with the `babel` / `typescript` parsers, which are ours. The other HTML-based parsers (`angular`, `lwc`, `mjml`) are not wrapped yet.
 
-- **`class="…"`** (any name in `unoAttributes`): Prettier's AST keeps the value as written, entities included (`&amp;`), and prints it trimmed with whitespace collapsed. The value is decoded and sorted like a JSX string (same entities, same rules for new pieces), and `value` is replaced with the sorted source text. Values with `{{` are left alone, as Prettier does.
+- **`class="…"`** (any name in `unoAttributes`; the parser lowercases HTML attribute names, so `CLASS` too): Prettier's AST keeps the value as written, entities included (`&amp;`), and prints it trimmed with whitespace collapsed. The value is decoded and sorted like a JSX string (same entities, same rules for new pieces), and `value` is replaced with the sorted source text. Values with `{{` are left alone, as Prettier does, and so are values with other entities (`&nbsp;`).
+
+Vue templates also have bound classes:
+
 - **`:class="…"` / `v-bind:class="…"`**: the value is a JavaScript expression that Prettier formats with its `__vue_expression` parser (`__vue_ts_expression` when the component's `<script>` is TypeScript, the same check as Prettier's). That parser can't be wrapped: it parses every binding (`:title`, `v-if`) and doesn't know which attribute it is in. So the `vue` parser parses `:class` values itself with the same parser, collects class strings with the whole expression as a class value (`collectClassNodes(…, classValue)`: strings, branches, arrays, object keys, as Vue's object syntax uses keys as classes), sorts them in that AST and writes their new source text back into the attribute value at their positions (`locStart` / `locEnd`). Prettier then formats the changed value as usual. A value Babel can't parse is left alone (Prettier reports it), and so is a value with an HTML entity: Vue decodes `&amp;` in attributes, Prettier doesn't, so the strings would be sorted by the wrong text.
 
-The ESLint rule sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
+The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), and sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
 
 ## Key decisions
 

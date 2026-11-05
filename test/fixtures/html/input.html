@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <body class="md:p-8 foo p-4 flex">
+    <div class="hover:bg-blue-600 btn bg-blue-500" CLASS="p-4 flex">uppercase name</div>
+    <p class='m-2 block'>single quotes</p>
+    <p class='content-["x"] p-4 flex'>quote inside</p>
+    <p class="content-[&quot;x&quot;] p-4 flex">entity</p>
+    <p class="p-2 [&>svg]:size-4 flex">bare ampersand</p>
+    <p class="p-2 [&amp;>svg]:size-4 flex">escaped ampersand</p>
+    <p class="p-4 &nbsp; flex">unknown entity, left alone</p>
+    <p class="p-4 {{ cls }} flex">template syntax, left alone</p>
+    <a class="
+      p-4
+      flex
+    ">multiline</a>
+    <i class="hover:(text-black bg-gray-100) m-1 flex"></i>
+    <svg class="p-2 flex"><circle class="p-4 flex" /></svg>
+    <p title="p-4 flex" data-class="p-4 flex">not class attributes</p>
+    <template><span class="p-4 flex">in a template</span></template>
+    <script>
+      const cls = clsx('p-4 flex')
+    </script>
+  </body>
+</html>

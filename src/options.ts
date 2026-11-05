@@ -9,8 +9,8 @@ export interface PluginOptions {
    */
   unoConfig?: string
   /**
-   * Attributes whose value is sorted: JSX attributes, and in Vue templates
-   * both `class="…"` and the bound `:class="…"`.
+   * Attributes whose value is sorted: JSX attributes, HTML attributes, and in
+   * Vue templates both `class="…"` and the bound `:class="…"`.
    * @default ['class', 'className']
    */
   unoAttributes?: string[]
@@ -60,7 +60,7 @@ export const options: Record<keyof PluginOptions, SupportOption> = {
       { value: DEFAULT_ATTRIBUTES },
     ],
     category: 'UnoCSS',
-    description: 'Attributes whose value is sorted (JSX, Vue `class` and `:class`)',
+    description: 'Attributes whose value is sorted (JSX, HTML, Vue `class` and `:class`)',
   },
   unoFunctions: {
     type: 'string',

@@ -1,6 +1,6 @@
 import type { Options } from 'prettier'
 import { existsSync, readdirSync } from 'node:fs'
-import { readdir, readFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -14,6 +14,14 @@ export const cases = readdirSync(root, { withFileTypes: true })
   .map(entry => entry.name)
   .sort()
 
+/** The `input.*` file name of a case. */
+export function inputFile(name: string): string {
+  const file = readdirSync(join(root, name)).find(file => file.startsWith('input.'))
+  if (!file)
+    throw new Error(`No input.* in ${join(root, name)}`)
+  return file
+}
+
 export interface FixtureCase {
   input: string
   filepath: string
@@ -23,14 +31,12 @@ export interface FixtureCase {
 
 export async function readCase(name: string): Promise<FixtureCase> {
   const dir = join(root, name)
-  const inputFile = (await readdir(dir)).find(file => file.startsWith('input.'))
-  if (!inputFile)
-    throw new Error(`No input.* in ${dir}`)
+  const input = inputFile(name)
   const optionsFile = join(dir, 'options.json')
   return {
-    input: await readFile(join(dir, inputFile), 'utf8'),
-    filepath: join(dir, inputFile),
-    output: join(dir, inputFile.replace(/^input\./, 'output.')),
+    input: await readFile(join(dir, input), 'utf8'),
+    filepath: join(dir, input),
+    output: join(dir, input.replace(/^input\./, 'output.')),
     options: existsSync(optionsFile)
       ? JSON.parse(await readFile(optionsFile, 'utf8'))
       : {},

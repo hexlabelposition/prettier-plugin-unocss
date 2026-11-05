@@ -9,6 +9,7 @@ import { parsers as typescriptParsers } from 'prettier/plugins/typescript'
 import { getGenerator } from './generator'
 import { DEFAULT_ATTRIBUTES, DEFAULT_FUNCTIONS, DEFAULT_VARIABLES } from './options'
 import { sortClassesInAst } from './transform'
+import { sortClassesInHtmlAst } from './transform/html'
 import { sortClassesInVueAst } from './transform/vue'
 
 type Options = ParserOptions & PluginOptions
@@ -60,6 +61,7 @@ export const parsers: Record<string, Parser> = {
   'acorn': withSorting(acornParsers.acorn),
   'espree': withSorting(acornParsers.espree),
   'meriyah': withSorting(meriyahParsers.meriyah),
+  'html': withSorting(htmlParsers.html, sortClassesInHtmlAst),
   'vue': withSorting(htmlParsers.vue, (ast, uno, options) => sortClassesInVueAst(ast, uno, {
     ...options,
     expressionParser: vueExpressionParser,

@@ -1,19 +1,11 @@
 import type { UnoGenerator } from '@unocss/core'
 import type { CollectOptions, StringLiteralNode, TemplateElementNode } from './collect'
+import type { HtmlNode } from './html'
 import type { AstNode } from './walk'
 import { collectClassNodes, isStringLiteral } from './collect'
-import { decodeJsxEntities, sortUnits } from './escapes'
-import { JSX_UNSAFE, sortClassNodes } from './index'
+import { sortStaticAttributes, walkElements } from './html'
+import { sortClassNodes } from './index'
 import { stringRaw } from './rewrite'
-
-/** An element, attribute or other node of Prettier's HTML AST (`vue` parser). */
-interface HtmlNode {
-  kind: string
-  name?: string
-  value?: string | null
-  attrs?: HtmlNode[]
-  children?: HtmlNode[]
-}
 
 /** A parser of a JavaScript expression, like Prettier's `__vue_expression`. */
 export interface ExpressionParser {
@@ -34,13 +26,6 @@ export interface VueOptions extends CollectOptions {
 // entities as written, while Vue decodes them: `'&amp;'` is `'&'` at runtime,
 // so classes with entities would be sorted by the wrong text.
 const ENTITY = /&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/i
-
-function walkElements(node: HtmlNode, visit: (element: HtmlNode) => void): void {
-  if (node.kind === 'element')
-    visit(node)
-  for (const child of node.children ?? [])
-    walkElements(child, visit)
-}
 
 /** Whether a Vue SFC has a TypeScript `<script>`, the same check as Prettier's. */
 function isTypeScript(root: HtmlNode): boolean {
@@ -71,31 +56,12 @@ export async function sortClassesInVueAst(ast: unknown, uno: UnoGenerator, optio
     }
   })
 
-  for (const attr of statics) {
-    const sorted = await sortStaticValue(attr.value, uno)
-    if (sorted !== undefined)
-      attr.value = sorted
-  }
+  await sortStaticAttributes(statics, uno)
   for (const attr of bindings) {
     const sorted = await sortBindingValue(attr.value, uno, options, parser)
     if (sorted !== undefined)
       attr.value = sorted
   }
-}
-
-/**
- * Sorts a static `class` value. Prettier's AST keeps entities as written
- * (`&amp;`), like JSX strings, so they are decoded the same way and keep
- * their spelling. Prettier itself trims the value and collapses whitespace.
- */
-async function sortStaticValue(value: string | null | undefined, uno: UnoGenerator): Promise<string | undefined> {
-  // Not Vue syntax, but Prettier leaves such values alone too
-  if (!value || value.includes('{{'))
-    return undefined
-  const units = decodeJsxEntities(value)
-  if (!units)
-    return undefined
-  return (await sortUnits(units, uno, JSX_UNSAFE, true))?.raw
 }
 
 /**

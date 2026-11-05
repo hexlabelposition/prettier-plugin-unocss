@@ -74,7 +74,7 @@ If the plugin ends up in the UnoCSS monorepo, stop after U2: the project author 
 Each language is its own collector + fixtures. Order by usage among UnoCSS users:
 
 - [x] Vue: `class`, `:class` (static strings, arrays, objects), `<script>` via the JS collector
-- [ ] HTML: `class` attribute
+- [x] HTML: `class` attribute
 - [ ] Svelte: `class`, `class:` directives are NOT sorted; requires compatibility with `prettier-plugin-svelte` (see U5)
 - [ ] Astro: `class`, `class:list`; requires `prettier-plugin-astro` compatibility
 

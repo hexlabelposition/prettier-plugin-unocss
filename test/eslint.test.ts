@@ -2,7 +2,7 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { formatWithEslint, formatWithPlugin } from './eslint-compare'
-import { cases, readCase, root } from './fixture-cases'
+import { cases, inputFile, readCase, root } from './fixture-cases'
 
 // Every fixture must give the same result as `eslint --fix` with the UnoCSS
 // `order` rule followed by Prettier, except for the cases below, where the
@@ -22,8 +22,12 @@ const different: Record<string, string> = {
 
 const configPath = join(root, 'uno.config.ts')
 
+// The ESLint rule doesn't support these languages
+const unsupported = /\.html$/
+const compared = cases.filter(name => !unsupported.test(inputFile(name)))
+
 describe('same result as the ESLint rule', () => {
-  it.each(cases)('%s', async (name) => {
+  it.each(compared)('%s', async (name) => {
     const { input, filepath, options } = await readCase(name)
     const compare = {
       filepath,
@@ -42,5 +46,5 @@ describe('same result as the ESLint rule', () => {
 })
 
 it('lists only existing cases as different', () => {
-  expect(Object.keys(different).filter(name => !cases.includes(name))).toEqual([])
+  expect(Object.keys(different).filter(name => !compared.includes(name))).toEqual([])
 })
