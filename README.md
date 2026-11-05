@@ -59,20 +59,32 @@ Whitespace between classes is collapsed to single spaces, so a class list split 
 
 ## Using with other Prettier plugins
 
-Prettier uses the parser of the **last** plugin that registers it. Put `prettier-plugin-unocss` after the language plugins it works with:
+Prettier uses the parser of the **last** plugin that registers it. Put `prettier-plugin-unocss` **last** in `plugins`:
 
 ```json
 {
-  "plugins": ["prettier-plugin-svelte", "prettier-plugin-astro", "prettier-plugin-unocss"]
+  "plugins": [
+    "prettier-plugin-svelte",
+    "prettier-plugin-astro",
+    "@ianvs/prettier-plugin-sort-imports",
+    "prettier-plugin-unocss"
+  ]
 }
 ```
 
-| Plugin                   | Needed for       |
-| ------------------------ | ---------------- |
-| `prettier-plugin-svelte` | `.svelte` (v4+)  |
-| `prettier-plugin-astro`  | `.astro` (v1+)   |
+This plugin builds on the parser of the plugin before it, so their changes are kept and classes are sorted on top:
 
-The language plugin is taken from your Prettier config; this plugin doesn't depend on it. In the wrong order, only `<script>` (and Astro's frontmatter) is sorted.
+| Plugin                                  | Notes                      |
+| --------------------------------------- | -------------------------- |
+| `prettier-plugin-svelte`                | Needed for `.svelte` (v4+) |
+| `prettier-plugin-astro`                 | Needed for `.astro` (v1+)  |
+| `prettier-plugin-organize-imports`      | JS, TS, Vue                |
+| `@ianvs/prettier-plugin-sort-imports`   | JS, TS, Vue                |
+| `@trivago/prettier-plugin-sort-imports` | JS, TS, Vue, Svelte        |
+
+Plugins are taken from your Prettier config; this plugin doesn't depend on them. In the wrong order the other plugin's parser is used: Svelte and Astro markup is not sorted (scripts still are), and with an import sorter after this plugin, nothing is sorted in that file type.
+
+Use only one class sorter: `prettier-plugin-tailwindcss` sorts classes too, by Tailwind's order, and the two plugins would undo each other's work.
 
 ## Options
 

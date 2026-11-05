@@ -1,5 +1,5 @@
 import type { UnoGenerator } from '@unocss/core'
-import type { Parser, ParserOptions } from 'prettier'
+import type { Parser, ParserOptions, Plugin } from 'prettier'
 import type { PluginOptions } from './options'
 import type { CollectOptions } from './transform'
 import type { ExpressionParser } from './transform/vue'
@@ -18,23 +18,24 @@ import { sortClassesInVueAst } from './transform/vue'
 
 type Options = ParserOptions & PluginOptions
 
+const PREFIX = '[prettier-plugin-unocss]'
+
 /**
- * Wraps a built-in parser: the original parser builds the AST, then class
- * strings in it are sorted, and Prettier's own printer formats the result.
- * The same approach as `prettier-plugin-tailwindcss`.
+ * Sorts the classes in the AST `parser` built from `text`; returns the AST
+ * to print (the same one, changed in place, or a new one).
  */
-export function withSorting(parser: Parser, sort: typeof sortClassesInAst = sortClassesInAst): Parser {
-  return {
-    ...parser,
-    async parse(text, options: Options) {
-      const ast = await parser.parse(text, options)
-      const uno = await getGenerator({ filepath: options.filepath, unoConfig: options.unoConfig })
-      // No config: leave the file untouched
-      if (uno)
-        await sort(ast, uno, collectOptions(options))
-      return ast
-    },
-  }
+type Sort = (ast: unknown, uno: UnoGenerator, options: Options, parser: Parser, text: string) => Promise<unknown>
+
+interface WrapOptions {
+  /** The parser name. */
+  name: string
+  /** Prettier's own parser of that name. */
+  builtin?: Parser
+  /** The plugin that provides the parser, when Prettier has none. */
+  pluginName?: string
+  /** The AST format of that plugin's parser; its printer is used as is. */
+  astFormat?: string
+  sort: Sort
 }
 
 function collectOptions(options: Options): CollectOptions {
@@ -45,64 +46,110 @@ function collectOptions(options: Options): CollectOptions {
   }
 }
 
-const PREFIX = '[prettier-plugin-unocss]'
+/** A parser, or a function that loads it (Prettier's own plugins). */
+type ParserEntry = Parser | (() => Promise<Parser>)
+
+function parserOf(plugin: string | URL | Plugin, name: string): ParserEntry | undefined {
+  if (typeof plugin !== 'object' || plugin instanceof URL)
+    return undefined
+  try {
+    return plugin.parsers?.[name] as ParserEntry | undefined
+  }
+  catch {
+    // A lazy parser that needs a missing plugin, like `svelte` in
+    // `@ianvs/prettier-plugin-sort-imports` without `prettier-plugin-svelte`
+    return undefined
+  }
+}
 
 /**
- * The parser another plugin registers under `name`, found in the plugins
- * Prettier loaded for this file. Plugins are not imported here: the user's
- * own installation is used, and they stay optional dependencies.
+ * The parser this plugin builds on: the parser of the same name from the
+ * last plugin before this one in `options.plugins` (the plugins Prettier
+ * loaded for the file: its own first, then the user's), or Prettier's own.
+ *
+ * So plugins that change a parser, like the import sorters, keep working
+ * when this plugin comes after them: their `preprocess` and `parse` run
+ * first, then classes are sorted. Plugins after this one are not looked at,
+ * so two plugins doing the same can't call each other in a loop.
  */
-function otherPluginParser(name: string, self: Parser, options: Options, pluginName: string): Parser {
-  for (const plugin of options.plugins ?? []) {
-    if (typeof plugin !== 'object' || plugin instanceof URL)
-      continue
-    const parser = plugin.parsers?.[name]
+async function baseParser(self: Parser, options: Options, { name, builtin, pluginName }: WrapOptions): Promise<Parser> {
+  const plugins = options.plugins ?? []
+  const own = plugins.findIndex(plugin => parserOf(plugin, name) === self)
+  const end = own === -1
+    ? plugins.length
+    : own
+  for (let i = end - 1; i >= 0; i--) {
+    const parser = parserOf(plugins[i]!, name)
+    // Prettier's own plugins load their parsers lazily
+    if (typeof parser === 'function')
+      return parser()
     if (parser && parser !== self)
       return parser
   }
+  if (builtin)
+    return builtin
   throw new Error(`${PREFIX} The \`${name}\` parser needs ${pluginName}: add it to \`plugins\`, before prettier-plugin-unocss`)
 }
 
-interface OtherPluginParser {
-  /** The parser name, the same in both plugins. */
-  name: string
-  /** The package that registers it, for the error message. */
-  pluginName: string
-  /** The `astFormat` of its parser; its printer stays in use. */
-  astFormat: string
-  /** Sorts the classes in the parsed AST; returns the AST to print. */
-  sort: (ast: unknown, uno: UnoGenerator, options: Options, parser: Parser, text: string) => Promise<unknown>
-}
-
 /**
- * Wraps a parser of another plugin (`prettier-plugin-svelte`,
- * `prettier-plugin-astro`). Prettier uses the parser of the last plugin that
- * registers a name, so this plugin must come after it in `plugins`; its
- * printer is found by `astFormat` and used as is. All Svelte and Astro AST
- * nodes have `start` / `end` offsets.
+ * Registers a parser under the name of an existing one: the base parser (see
+ * {@link baseParser}) builds the AST, then classes are sorted in it and the
+ * base plugin's printer formats the result. Prettier uses the parser of the
+ * last plugin that registers a name, so this plugin must be the last one.
  */
-function wrapOtherPlugin({ name, pluginName, astFormat, sort }: OtherPluginParser): Parser {
+function wrapParser(wrap: WrapOptions): Parser {
   const self: Parser = {
-    astFormat,
-    locStart: node => node.start,
-    locEnd: node => node.end,
-    preprocess(text, options: Options) {
-      const parser = otherPluginParser(name, self, options, pluginName)
+    ...wrap.builtin,
+    astFormat: wrap.builtin?.astFormat ?? wrap.astFormat!,
+    // All Svelte and Astro AST nodes have `start` / `end` offsets
+    locStart: wrap.builtin?.locStart ?? (node => node.start),
+    locEnd: wrap.builtin?.locEnd ?? (node => node.end),
+    // Prettier awaits `preprocess`, although its type says it's synchronous
+    preprocess: (async (text: string, options: Options) => {
+      const parser = await baseParser(self, options, wrap)
       return parser.preprocess
         ? parser.preprocess(text, options)
         : text
-    },
+    }) as unknown as Parser['preprocess'],
     async parse(text, options: Options) {
-      const parser = otherPluginParser(name, self, options, pluginName)
+      const parser = await baseParser(self, options, wrap)
       const ast = await parser.parse(text, options)
       const uno = await getGenerator({ filepath: options.filepath, unoConfig: options.unoConfig })
       // No config: leave the file untouched
       return uno
-        ? sort(ast, uno, options, parser, text)
+        ? wrap.sort(ast, uno, options, parser, text)
         : ast
     },
   }
   return self
+}
+
+/** Sorts in place, for printers that print from the AST. */
+function inPlace(sort: (ast: unknown, uno: UnoGenerator, options: CollectOptions) => Promise<void>): Sort {
+  return async (ast, uno, options) => {
+    await sort(ast, uno, collectOptions(options))
+    return ast
+  }
+}
+
+function builtinParser(name: string, builtin: Parser, sort = inPlace(sortClassesInAst)): Parser {
+  return wrapParser({ name, builtin, sort })
+}
+
+/**
+ * Prettier's own parsers for the expressions in Vue attributes. They are not
+ * wrapped: they parse every binding (`:title`, `v-if`, …), without knowing
+ * the attribute, so `:class` values are sorted by the `vue` parser instead.
+ */
+function vueExpressionParser(typescript: boolean): ExpressionParser {
+  const parser = typescript
+    ? babelParsers.__vue_ts_expression
+    : babelParsers.__vue_expression
+  return {
+    parse: text => parser.parse(text, {} as ParserOptions),
+    locStart: node => parser.locStart(node),
+    locEnd: node => parser.locEnd(node),
+  }
 }
 
 /**
@@ -111,7 +158,7 @@ function wrapOtherPlugin({ name, pluginName, astFormat, sort }: OtherPluginParse
  * text, which is then parsed again and becomes `options.originalText` (the
  * Svelte parser's own `preprocess` sets it too).
  */
-const svelteParser = wrapOtherPlugin({
+const svelteParser = wrapParser({
   name: 'svelte',
   pluginName: 'prettier-plugin-svelte',
   astFormat: 'svelte-ast',
@@ -131,44 +178,25 @@ const svelteParser = wrapOtherPlugin({
  * AST (a JSX AST, with Prettier's estree printer), so it is sorted in place
  * like JSX.
  */
-const astroParser = wrapOtherPlugin({
+const astroParser = wrapParser({
   name: 'astro',
   pluginName: 'prettier-plugin-astro',
   astFormat: 'astro',
-  async sort(ast, uno, options) {
-    await sortClassesInAstroAst(ast, uno, collectOptions(options))
-    return ast
-  },
+  sort: inPlace(sortClassesInAstroAst),
 })
 
-/**
- * Prettier's own parsers for the expressions in Vue attributes. They are not
- * wrapped: they parse every binding (`:title`, `v-if`, …), without knowing
- * the attribute, so `:class` values are sorted by the `vue` parser instead.
- */
-function vueExpressionParser(typescript: boolean): ExpressionParser {
-  const parser = typescript
-    ? babelParsers.__vue_ts_expression
-    : babelParsers.__vue_expression
-  return {
-    parse: text => parser.parse(text, {} as ParserOptions),
-    locStart: node => parser.locStart(node),
-    locEnd: node => parser.locEnd(node),
-  }
-}
-
 export const parsers: Record<string, Parser> = {
-  'babel': withSorting(babelParsers.babel),
-  'babel-ts': withSorting(babelParsers['babel-ts']),
-  'typescript': withSorting(typescriptParsers.typescript),
-  'acorn': withSorting(acornParsers.acorn),
-  'espree': withSorting(acornParsers.espree),
-  'meriyah': withSorting(meriyahParsers.meriyah),
-  'html': withSorting(htmlParsers.html, sortClassesInHtmlAst),
-  'svelte': svelteParser,
-  'astro': astroParser,
-  'vue': withSorting(htmlParsers.vue, (ast, uno, options) => sortClassesInVueAst(ast, uno, {
+  'babel': builtinParser('babel', babelParsers.babel),
+  'babel-ts': builtinParser('babel-ts', babelParsers['babel-ts']),
+  'typescript': builtinParser('typescript', typescriptParsers.typescript),
+  'acorn': builtinParser('acorn', acornParsers.acorn),
+  'espree': builtinParser('espree', acornParsers.espree),
+  'meriyah': builtinParser('meriyah', meriyahParsers.meriyah),
+  'html': builtinParser('html', htmlParsers.html, inPlace(sortClassesInHtmlAst)),
+  'vue': builtinParser('vue', htmlParsers.vue, inPlace((ast, uno, options) => sortClassesInVueAst(ast, uno, {
     ...options,
     expressionParser: vueExpressionParser,
-  })),
+  }))),
+  'svelte': svelteParser,
+  'astro': astroParser,
 }

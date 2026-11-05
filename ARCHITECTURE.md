@@ -29,7 +29,7 @@ This is the same approach as `prettier-plugin-tailwindcss`.
 ```text
 src/
   index.ts        Plugin entry: exports `parsers` and `options`
-  parsers.ts      Wraps built-in parsers (withSorting)
+  parsers.ts      Wraps parsers: Prettier's or other plugins' (wrapParser)
   generator.ts    Loads uno.config, caches UnoGenerator instances
   icons.ts        Creates generators as under ESLint (no icon collections)
   sort.ts         Ordering algorithm (string in → string out)
@@ -124,11 +124,22 @@ Vue templates also have bound classes:
 
 The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), and sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
 
-## Parsers of other plugins (Svelte, Astro)
+## Parsers of other plugins (`parsers.ts`)
 
-Prettier has no Svelte or Astro support; `prettier-plugin-svelte` and `prettier-plugin-astro` register the `svelte` / `astro` parsers and their printers. Our parsers of the same names (`wrapOtherPlugin` in `parsers.ts`) wrap theirs, found at runtime in `options.plugins` (the plugin objects Prettier loaded for the file), so they are not dependencies of ours and the user's own versions are used. Prettier takes the parser of the last plugin that registers a name, so ours must be listed after them; the printer is found by `astFormat` and stays theirs. `preprocess` is delegated as well (Svelte's cuts out `<script>` / `<style>` content). In the wrong order their parser is used: only the scripts are sorted, by our JS parsers. Without the plugin, our parser throws an error that names it.
+Prettier lets one plugin own a parser name: it uses the parser of the last plugin that registers it. Other plugins register the same names: `prettier-plugin-svelte` / `prettier-plugin-astro` add `svelte` / `astro` (Prettier has none), and the import sorters (`prettier-plugin-organize-imports`, `@ianvs/…` and `@trivago/prettier-plugin-sort-imports`) replace `babel`, `typescript`, `vue`, … with Prettier's parsers plus a `preprocess` that reorders imports.
 
-How the sorted classes get printed depends on the printer: Svelte's prints expressions from the source text, Astro's prints the AST.
+So every parser of ours (`wrapParser`) builds on a **base parser** found at runtime (`baseParser`): the parser of the same name from the last plugin **before ours** in `options.plugins` (the plugin objects Prettier loaded for the file: its own plugins first, then the user's), falling back to Prettier's own parser. The base parser's `preprocess` and `parse` run, then classes are sorted, and the base plugin's printer (found by `astFormat`) prints. Other plugins stay optional: the user's own versions are used, and none is imported here.
+
+Details:
+
+- Plugins after ours are never looked at, so two plugins that both build on the previous one can't call each other in a loop. With ours listed first, the other plugin's parser is used and ours does nothing for that parser name. The README asks for ours to be last.
+- Prettier's own plugins load parsers lazily (the entry is a function); `@ianvs/…` has getters that throw when an optional plugin is missing. Both are handled.
+- `preprocess` is async (Prettier awaits it, its type says otherwise), because finding a lazy base parser is.
+- Svelte and Astro have no Prettier parser: without the plugin, ours throws an error that names it.
+
+How the sorted classes get printed depends on the printer: Svelte's prints expressions from the source text, Astro's and Prettier's print the AST.
+
+`test/compat.test.ts` checks for every import sorter that the result with ours last is theirs with classes sorted.
 
 ## Svelte (`transform/svelte.ts`)
 
@@ -162,7 +173,8 @@ The ESLint rule (with `astro-eslint-parser`) sorts `class` and `clsx(…)` in th
 
 ## Known limitations
 
-- Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, …) needs a compatibility layer. `prettier-plugin-svelte` and `prettier-plugin-astro` are wrapped (see above).
+- This plugin must be the last one in `plugins` (see Parsers of other plugins). Plugins that replace parsers other than the ones listed in the README may work the same way, but are not tested.
+- Only one class sorter: with `prettier-plugin-tailwindcss` the two would undo each other's work. Out of scope.
 - Attributify mode is not supported.
 
 ## References

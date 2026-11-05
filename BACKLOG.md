@@ -84,9 +84,9 @@ Prettier lets only one plugin own a parser name. Study how `prettier-plugin-tail
 
 - [x] `prettier-plugin-svelte` (done with U4 Svelte)
 - [x] `prettier-plugin-astro` (done with U4 Astro)
-- [ ] `prettier-plugin-organize-imports`, `@ianvs/prettier-plugin-sort-imports`, `@trivago/prettier-plugin-sort-imports`
-- [ ] Document the required plugin order in `plugins` (ours last)
-- [ ] Coexistence with `prettier-plugin-tailwindcss` is out of scope: document that only one sorter should be used
+- [x] `prettier-plugin-organize-imports`, `@ianvs/prettier-plugin-sort-imports`, `@trivago/prettier-plugin-sort-imports`
+- [x] Document the required plugin order in `plugins` (ours last)
+- [x] Coexistence with `prettier-plugin-tailwindcss` is out of scope: document that only one sorter should be used
 
 ## U6: Attributify (optional)
 
