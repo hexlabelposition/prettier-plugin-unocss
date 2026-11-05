@@ -6,6 +6,7 @@ import type { Options } from 'prettier'
 import { dirname } from 'node:path'
 import tsParser from '@typescript-eslint/parser'
 import unocss from '@unocss/eslint-plugin'
+import * as astroParser from 'astro-eslint-parser'
 import { Linter } from 'eslint'
 import { format } from 'prettier'
 import svelteParser from 'svelte-eslint-parser'
@@ -21,6 +22,16 @@ export interface CompareOptions {
   unoVariables?: string[]
 }
 
+// ESLint parsers of languages with their own syntax; scripts in them are
+// parsed with the TypeScript parser
+function languageParser(filepath: string): Linter.Parser {
+  if (filepath.endsWith('.vue'))
+    return vueParser as Linter.Parser
+  if (filepath.endsWith('.svelte'))
+    return svelteParser as Linter.Parser
+  return astroParser as Linter.Parser
+}
+
 export async function formatWithEslint(code: string, options: CompareOptions): Promise<string> {
   // Flat config only matches files under `cwd`
   const linter = new Linter({
@@ -29,12 +40,10 @@ export async function formatWithEslint(code: string, options: CompareOptions): P
   })
   const { output, messages } = linter.verifyAndFix(code, [
     {
-      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,vue,svelte}'],
-      languageOptions: /\.(?:vue|svelte)$/.test(options.filepath)
+      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,vue,svelte,astro}'],
+      languageOptions: /\.(?:vue|svelte|astro)$/.test(options.filepath)
         ? {
-            parser: options.filepath.endsWith('.vue')
-              ? vueParser
-              : svelteParser,
+            parser: languageParser(options.filepath),
             parserOptions: { parser: tsParser },
           }
         : {

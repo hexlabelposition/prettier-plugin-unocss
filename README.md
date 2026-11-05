@@ -36,6 +36,7 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 
 - JSX attributes `class` and `className`
 - HTML: `class="…"` (`<script>` is sorted like any JS file)
+- Astro (with `prettier-plugin-astro`, see below): `class="…"` and `class={…}` as in JSX, `class:list={…}` as a whole (object keys are classes), `clsx(…)` in the markup; the frontmatter and `<script>` like any JS/TS file
 - Svelte (with `prettier-plugin-svelte`, see below): `class="…"`, also with `{…}` inside, and `class={…}` as a whole (Svelte 5 passes it through `clsx`, so object keys are classes); `clsx(…)` anywhere in the markup; `class:name` directives are left alone
 - Vue templates: `class="…"`, and `:class` / `v-bind:class` as a whole: strings, arrays, objects (keys are classes, as in Vue), conditionals; `<script>` is sorted like any JS/TS file
 - String arguments of `clsx`, `cn`, `cx`, `classnames`, `tv`, `cva`
@@ -62,15 +63,16 @@ Prettier uses the parser of the **last** plugin that registers it. Put `prettier
 
 ```json
 {
-  "plugins": ["prettier-plugin-svelte", "prettier-plugin-unocss"]
+  "plugins": ["prettier-plugin-svelte", "prettier-plugin-astro", "prettier-plugin-unocss"]
 }
 ```
 
 | Plugin                   | Needed for       |
 | ------------------------ | ---------------- |
 | `prettier-plugin-svelte` | `.svelte` (v4+)  |
+| `prettier-plugin-astro`  | `.astro` (v1+)   |
 
-The language plugin is taken from your Prettier config; this plugin doesn't depend on it. In the wrong order, only `<script>` is sorted.
+The language plugin is taken from your Prettier config; this plugin doesn't depend on it. In the wrong order, only `<script>` (and Astro's frontmatter) is sorted.
 
 ## Options
 
@@ -103,7 +105,7 @@ Icon collections from `@iconify-json/*` are not loaded for sorting, so `presetIc
 | HTML                                | ✅         |
 | Vue                                 | ✅         |
 | Svelte                              | ✅         |
-| Astro                               | 🚧 planned |
+| Astro                               | ✅         |
 
 ## Development
 

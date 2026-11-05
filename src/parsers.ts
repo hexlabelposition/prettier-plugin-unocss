@@ -1,3 +1,4 @@
+import type { UnoGenerator } from '@unocss/core'
 import type { Parser, ParserOptions } from 'prettier'
 import type { PluginOptions } from './options'
 import type { CollectOptions } from './transform'
@@ -10,6 +11,7 @@ import { parsers as typescriptParsers } from 'prettier/plugins/typescript'
 import { getGenerator } from './generator'
 import { DEFAULT_ATTRIBUTES, DEFAULT_FUNCTIONS, DEFAULT_VARIABLES } from './options'
 import { applyEdits, sortClassesInAst } from './transform'
+import { sortClassesInAstroAst } from './transform/astro'
 import { sortClassesInHtmlAst } from './transform/html'
 import { svelteClassEdits } from './transform/svelte'
 import { sortClassesInVueAst } from './transform/vue'
@@ -61,44 +63,83 @@ function otherPluginParser(name: string, self: Parser, options: Options, pluginN
   throw new Error(`${PREFIX} The \`${name}\` parser needs ${pluginName}: add it to \`plugins\`, before prettier-plugin-unocss`)
 }
 
+interface OtherPluginParser {
+  /** The parser name, the same in both plugins. */
+  name: string
+  /** The package that registers it, for the error message. */
+  pluginName: string
+  /** The `astFormat` of its parser; its printer stays in use. */
+  astFormat: string
+  /** Sorts the classes in the parsed AST; returns the AST to print. */
+  sort: (ast: unknown, uno: UnoGenerator, options: Options, parser: Parser, text: string) => Promise<unknown>
+}
+
 /**
- * Wraps the `svelte` parser of `prettier-plugin-svelte`. Prettier uses the
- * parser of the last plugin that registers a name, so this plugin must come
- * after it in `plugins`; its printer (`svelte-ast`) is used as is.
- *
- * The Svelte printer prints expressions from the source text, not from the
- * AST, so class changes are applied to the text, which is then parsed again
- * and becomes `options.originalText` (the Svelte parser's own `preprocess`
- * sets it too).
+ * Wraps a parser of another plugin (`prettier-plugin-svelte`,
+ * `prettier-plugin-astro`). Prettier uses the parser of the last plugin that
+ * registers a name, so this plugin must come after it in `plugins`; its
+ * printer is found by `astFormat` and used as is. All Svelte and Astro AST
+ * nodes have `start` / `end` offsets.
  */
-function svelteParser(): Parser {
+function wrapOtherPlugin({ name, pluginName, astFormat, sort }: OtherPluginParser): Parser {
   const self: Parser = {
-    astFormat: 'svelte-ast',
+    astFormat,
     locStart: node => node.start,
     locEnd: node => node.end,
     preprocess(text, options: Options) {
-      const parser = otherPluginParser('svelte', self, options, 'prettier-plugin-svelte')
+      const parser = otherPluginParser(name, self, options, pluginName)
       return parser.preprocess
         ? parser.preprocess(text, options)
         : text
     },
     async parse(text, options: Options) {
-      const parser = otherPluginParser('svelte', self, options, 'prettier-plugin-svelte')
+      const parser = otherPluginParser(name, self, options, pluginName)
       const ast = await parser.parse(text, options)
       const uno = await getGenerator({ filepath: options.filepath, unoConfig: options.unoConfig })
-      if (!uno)
-        return ast
-      const edits = await svelteClassEdits(ast, text, uno, collectOptions(options))
-      if (!edits.length)
-        return ast
-      const sorted = applyEdits(text, edits)
-      const sortedAst = await parser.parse(sorted, options)
-      options.originalText = sorted
-      return sortedAst
+      // No config: leave the file untouched
+      return uno
+        ? sort(ast, uno, options, parser, text)
+        : ast
     },
   }
   return self
 }
+
+/**
+ * Svelte, with `prettier-plugin-svelte`. Its printer prints expressions from
+ * the source text, not from the AST, so class changes are applied to the
+ * text, which is then parsed again and becomes `options.originalText` (the
+ * Svelte parser's own `preprocess` sets it too).
+ */
+const svelteParser = wrapOtherPlugin({
+  name: 'svelte',
+  pluginName: 'prettier-plugin-svelte',
+  astFormat: 'svelte-ast',
+  async sort(ast, uno, options, parser, text) {
+    const edits = await svelteClassEdits(ast, text, uno, collectOptions(options))
+    if (!edits.length)
+      return ast
+    const sorted = applyEdits(text, edits)
+    const sortedAst = await parser.parse(sorted, options)
+    options.originalText = sorted
+    return sortedAst
+  },
+})
+
+/**
+ * Astro, with `prettier-plugin-astro`. Its printer prints the markup from the
+ * AST (a JSX AST, with Prettier's estree printer), so it is sorted in place
+ * like JSX.
+ */
+const astroParser = wrapOtherPlugin({
+  name: 'astro',
+  pluginName: 'prettier-plugin-astro',
+  astFormat: 'astro',
+  async sort(ast, uno, options) {
+    await sortClassesInAstroAst(ast, uno, collectOptions(options))
+    return ast
+  },
+})
 
 /**
  * Prettier's own parsers for the expressions in Vue attributes. They are not
@@ -124,7 +165,8 @@ export const parsers: Record<string, Parser> = {
   'espree': withSorting(acornParsers.espree),
   'meriyah': withSorting(meriyahParsers.meriyah),
   'html': withSorting(htmlParsers.html, sortClassesInHtmlAst),
-  'svelte': svelteParser(),
+  'svelte': svelteParser,
+  'astro': astroParser,
   'vue': withSorting(htmlParsers.vue, (ast, uno, options) => sortClassesInVueAst(ast, uno, {
     ...options,
     expressionParser: vueExpressionParser,

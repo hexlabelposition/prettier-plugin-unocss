@@ -1,0 +1,29 @@
+---
+const { active, color } = Astro.props;
+---
+
+<div
+  class:list={[
+    "flex p-4",
+    active && "text-red-500 underline",
+    { "m-2 block": active, flex: !active },
+    ["block p-2"],
+  ]}
+>
+  <span class={active ? "flex p-4" : "m-2 block"}>conditional</span>
+  <span
+    class={`flex p-4 ${active ? "m-2 block" : ""} text-${color}-500 block p-2`}
+  >
+    template
+  </span>
+  <span class={{ "p-4 flex": active }.toString()}>
+    object keys outside class:list are left alone
+  </span>
+  <span class="flex p-4">multiline</span>
+  <span class='flex p-4 content-["x"]'>entity</span>
+  <span class="p-4 &nbsp; flex">unknown entity, left alone</span>
+  {active && <i class={clsx("flex p-4")}>{clsx("m-2 block")}</i>}
+</div>
+<script>
+  const c = clsx("flex p-4");
+</script>

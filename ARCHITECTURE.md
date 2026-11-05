@@ -43,12 +43,13 @@ src/
     html.ts       HTML: static `class` in Prettier's HTML AST (shared with Vue)
     vue.ts        Vue templates: `class` and `:class` in Prettier's HTML AST
     svelte.ts     Svelte markup (prettier-plugin-svelte's AST), as text edits
+    astro.ts      Astro markup (prettier-plugin-astro's JSX AST)
   options.ts      Option definitions and their types
 ```
 
 Dependency direction: `index → parsers → (generator, transform) → sort`. `sort.ts` knows nothing about Prettier or ASTs; `transform/` knows nothing about UnoCSS internals beyond calling `sort`.
 
-> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`html.ts`, `vue.ts`, `svelte.ts`; Astro later).
+> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`html.ts`, `vue.ts`, `svelte.ts`, `astro.ts`).
 
 ## Ordering algorithm (`sort.ts`)
 
@@ -123,9 +124,13 @@ Vue templates also have bound classes:
 
 The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), and sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
 
-## Svelte (`transform/svelte.ts`)
+## Parsers of other plugins (Svelte, Astro)
 
-Prettier has no Svelte support; `prettier-plugin-svelte` registers the `svelte` parser and the `svelte-ast` printer. Our `svelte` parser wraps its parser, found at runtime in `options.plugins` (the plugin objects Prettier loaded for the file), so it is not a dependency of ours and the user's own version is used. Prettier takes the parser of the last plugin that registers a name, so ours must be listed after it; the printer is found by `astFormat` and stays theirs. `preprocess` is delegated as well (it cuts out `<script>` / `<style>` content).
+Prettier has no Svelte or Astro support; `prettier-plugin-svelte` and `prettier-plugin-astro` register the `svelte` / `astro` parsers and their printers. Our parsers of the same names (`wrapOtherPlugin` in `parsers.ts`) wrap theirs, found at runtime in `options.plugins` (the plugin objects Prettier loaded for the file), so they are not dependencies of ours and the user's own versions are used. Prettier takes the parser of the last plugin that registers a name, so ours must be listed after them; the printer is found by `astFormat` and stays theirs. `preprocess` is delegated as well (Svelte's cuts out `<script>` / `<style>` content). In the wrong order their parser is used: only the scripts are sorted, by our JS parsers. Without the plugin, our parser throws an error that names it.
+
+How the sorted classes get printed depends on the printer: Svelte's prints expressions from the source text, Astro's prints the AST.
+
+## Svelte (`transform/svelte.ts`)
 
 The Svelte printer prints expressions from the **source text** (`getText` by `start` / `end`), not from the AST, so changing AST nodes would have no effect. Instead `svelteClassEdits` collects the changes as text edits (`classNodeEdits`, the same helper as Vue's `:class`), the parser applies them, parses the changed text again and sets it as `options.originalText`, as the plugin's own `preprocess` does. The only side effect: Prettier computes the cursor position (editors) from the text before sorting, so the cursor may move a little within a sorted line. Only the modern AST (plugin v4, Svelte 5) is supported; with v3 the markup is left alone.
 
@@ -137,6 +142,12 @@ In the markup:
 - Any other expression in the markup is searched for class contexts (`clsx(…)`, `{@const cls = …}`).
 
 The ESLint rule sorts the text parts of `class` and string branches of `{c ? '…' : '…'}` inside it, and `clsx(…)`; it decodes `&quot;` into a `class="…"` value, which breaks the markup.
+
+## Astro (`transform/astro.ts`)
+
+`prettier-plugin-astro` (v1) turns the markup into a JSX AST (`ast.template`) printed by Prettier's estree printer, from the AST. So the markup is sorted in place exactly like JSX: `class="…"` (attribute strings keep entities as written, as in JSX), `class={…}`, `clsx(…)` anywhere. On top of that, `class:list={…}` is a class value whose object keys are classes too, as Astro passes it through `clsx` (the `listAttributes` collect option, not a user option). The frontmatter and `<script>` are formatted with `babel-ts`, which is ours; the frontmatter's AST in `ast.frontmatter` is not touched, as it is not printed.
+
+The ESLint rule (with `astro-eslint-parser`) sorts `class` and `clsx(…)` in the markup and the frontmatter, but not `class:list` or `<script>`, and decodes `&quot;` into a `class="…"` value, which breaks the markup.
 
 ## Key decisions
 
@@ -151,7 +162,7 @@ The ESLint rule sorts the text parts of `class` and string branches of `{c ? '�
 
 ## Known limitations
 
-- Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, …) needs a compatibility layer. `prettier-plugin-svelte` is wrapped (see Svelte above).
+- Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, …) needs a compatibility layer. `prettier-plugin-svelte` and `prettier-plugin-astro` are wrapped (see above).
 - Attributify mode is not supported.
 
 ## References

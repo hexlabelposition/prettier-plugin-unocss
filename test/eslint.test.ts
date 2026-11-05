@@ -8,6 +8,7 @@ import { cases, inputFile, readCase, root } from './fixture-cases'
 // `order` rule followed by Prettier, except for the cases below, where the
 // difference is intended.
 const different: Record<string, string> = {
+  'astro-class-list': 'ESLint decodes `&quot;` into a `class="…"` value, which breaks the markup, and doesn\'t sort `class:list` or `<script>`',
   'clsx-object-keys': 'ESLint makes two keys equal: `{ \'p-4 flex\': a, \'flex p-4\': b }`',
   'conditional-logical-array': 'ESLint looks only one level deep',
   'playground-example': 'ESLint breaks classes glued to `${…}`',

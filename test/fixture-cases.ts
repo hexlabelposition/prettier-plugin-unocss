@@ -3,6 +3,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import * as astroPlugin from 'prettier-plugin-astro'
 import * as sveltePlugin from 'prettier-plugin-svelte'
 
 // test/fixtures/<case>/input.<ext> is formatted and compared with output.<ext>.
@@ -25,12 +26,14 @@ export function inputFile(name: string): string {
 
 /**
  * Plugins a language needs besides ours, which must come after them (see
- * the README): Svelte needs `prettier-plugin-svelte`.
+ * the README): `prettier-plugin-svelte` and `prettier-plugin-astro`.
  */
 export function languagePlugins(filepath: string): Plugin[] {
-  return filepath.endsWith('.svelte')
-    ? [sveltePlugin as Plugin]
-    : []
+  if (filepath.endsWith('.svelte'))
+    return [sveltePlugin as Plugin]
+  if (filepath.endsWith('.astro'))
+    return [astroPlugin as Plugin]
+  return []
 }
 
 export interface FixtureCase {

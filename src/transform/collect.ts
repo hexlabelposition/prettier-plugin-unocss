@@ -28,6 +28,11 @@ export interface CollectOptions {
   /** Functions whose arguments hold classes (`unoFunctions`). */
   functions: readonly string[]
   /**
+   * JSX attributes whose value is a clsx-like class value: object keys are
+   * classes too. Astro's `class:list`; not an option for users.
+   */
+  listAttributes?: readonly string[]
+  /**
    * Regular expressions (case-insensitive) for variable names whose value
    * holds classes (`unoVariables`). Optional: no variables by default.
    */
@@ -219,6 +224,7 @@ function staticKeyName(property: AstNode): string | undefined {
 export function collectClassNodes(ast: unknown, options: CollectOptions, root: CollectRoot = 'program'): ClassNodes {
   const attributes = new Set(options.attributes)
   const functions = new Set(options.functions)
+  const listAttributes = new Set(options.listAttributes)
   const variables = compileVariables(options.variables ?? [])
   const result: ClassNodes = {
     strings: [],
@@ -372,6 +378,11 @@ export function collectClassNodes(ast: unknown, options: CollectOptions, root: C
       // <div className="…" />, className={'…'}, className={`…`}
       if (node.type === 'JSXAttribute') {
         const name = jsxAttributeName(node)
+        // class:list={['…', { '…': on }]}
+        if (name && listAttributes.has(name) && isNode(node.value) && node.value.type === 'JSXExpressionContainer') {
+          collectClassValue(node.value.expression, true)
+          return false
+        }
         if (name && attributes.has(name)) {
           const value = isNode(node.value) && node.value.type === 'JSXExpressionContainer'
             ? node.value.expression

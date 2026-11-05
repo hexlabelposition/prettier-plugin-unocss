@@ -1,0 +1,16 @@
+---
+import { clsx } from "clsx";
+
+const { active } = Astro.props;
+const clsButton = "flex p-4 shadow";
+const card = clsx("flex rounded-lg p-4", active && "m-2 block");
+---
+
+<div class="foo flex p-4 md:p-8">
+  <span class="btn bg-blue-500 hover:bg-blue-600">a</span>
+  <i class="m-1 flex hover:(bg-gray-100 text-black)"></i>
+  <svg class="flex p-2 [&>svg]:size-4"></svg>
+  <span class={"flex p-4"}>b</span>
+  <p title="p-4 flex">not a class attribute</p>
+  <Card class="flex p-4" />
+</div>

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { format } from 'prettier'
+import * as astroPlugin from 'prettier-plugin-astro'
 import * as sveltePlugin from 'prettier-plugin-svelte'
 import { afterAll, describe, expect, it } from 'vitest'
 import * as plugin from '../src/index'
@@ -88,23 +89,47 @@ describe('parsers', () => {
   })
 })
 
-describe('svelte', () => {
-  it('needs prettier-plugin-svelte', async () => {
+describe.each([
+  {
+    parser: 'svelte',
+    pluginName: 'prettier-plugin-svelte',
+    other: sveltePlugin as Plugin,
+    file: 'a.svelte',
+    code: '<script>\n  const cls = clsx("p-4 flex");\n</script>\n\n<div class="p-4 flex"></div>\n',
+    sorted: '<script>\n  const cls = clsx("flex p-4");\n</script>\n\n<div class="p-4 flex"></div>\n',
+  },
+  {
+    parser: 'astro',
+    pluginName: 'prettier-plugin-astro',
+    other: astroPlugin as Plugin,
+    file: 'a.astro',
+    code: '---\nconst cls = clsx("p-4 flex");\n---\n\n<div class="p-4 flex"></div>\n',
+    sorted: '---\nconst cls = clsx("flex p-4");\n---\n\n<div class="p-4 flex"></div>\n',
+  },
+])('$parser', ({ parser, pluginName, other, file, code, sorted }) => {
+  it(`needs ${pluginName}`, async () => {
     const options = {
-      filepath: at('a.svelte'),
+      filepath: at(file),
       plugins: [plugin],
     } as unknown as ParserOptions
-    expect(() => plugin.parsers.svelte!.preprocess!('<div></div>', options))
-      .toThrow('[prettier-plugin-unocss] The `svelte` parser needs prettier-plugin-svelte: add it to `plugins`, before prettier-plugin-unocss')
+    await expect(async () => plugin.parsers[parser]!.parse(code, options))
+      .rejects
+      .toThrow(`[prettier-plugin-unocss] The \`${parser}\` parser needs ${pluginName}: add it to \`plugins\`, before prettier-plugin-unocss`)
   })
 
-  it('sorts only <script> when listed before prettier-plugin-svelte', async () => {
-    const code = '<script>\n  const cls = clsx("p-4 flex");\n</script>\n\n<div class="p-4 flex"></div>\n'
+  it(`sorts only scripts when listed before ${pluginName}`, async () => {
     expect(await format(code, {
-      filepath: at('a.svelte'),
-      plugins: [plugin, sveltePlugin as Plugin],
+      filepath: at(file),
+      plugins: [plugin, other],
+    })).toBe(sorted)
+  })
+
+  it(`sorts the markup when listed after ${pluginName}`, async () => {
+    expect(await format(code, {
+      filepath: at(file),
+      plugins: [other, plugin],
     }))
-      .toBe('<script>\n  const cls = clsx("flex p-4");\n</script>\n\n<div class="p-4 flex"></div>\n')
+      .toBe(sorted.replace('class="p-4 flex"', 'class="flex p-4"'))
   })
 })
 
