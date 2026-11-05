@@ -1,12 +1,13 @@
 import type { UnoGenerator } from '@unocss/core'
-import type { ClassNodes, CollectOptions, KeyGroup, StringLiteralNode, TemplateLiteralNode } from './collect'
+import type { ClassNodes, CollectOptions, KeyGroup, StringLiteralNode, TemplateElementNode, TemplateLiteralNode } from './collect'
 import type { SortedText } from './escapes'
+import type { AstNode } from './walk'
 import { collectClassNodes, isStringLiteral } from './collect'
 import { cookedText, decodeEscapes, decodeJsxEntities, jsxParserValue, sortUnits } from './escapes'
 import { setStringValue, setTemplateElementValue, stringRaw } from './rewrite'
 import { sortQuasi, sortTemplateLiteral } from './template'
 
-export type { CollectOptions } from './collect'
+export type { CollectOptions, CollectRoot } from './collect'
 
 // Characters a new piece must not bring into a string unescaped. Both quotes:
 // Prettier may switch the quote character, see `sortUnits`.
@@ -16,6 +17,74 @@ export const JSX_UNSAFE = /['"&]/
 /** Sorts the classes in every class string of an ESTree/Babel AST, in place. */
 export async function sortClassesInAst(ast: unknown, uno: UnoGenerator, options: CollectOptions): Promise<void> {
   await sortClassNodes(collectClassNodes(ast, options), uno)
+}
+
+/** A replacement of `text.slice(start, end)` with `raw`. */
+export interface TextEdit {
+  start: number
+  end: number
+  raw: string
+}
+
+/** Positions of AST nodes in the source text. */
+export interface Locator {
+  locStart: (node: AstNode) => number
+  locEnd: (node: AstNode) => number
+}
+
+/**
+ * Sorts collected nodes and returns the changes as edits of the source text
+ * they were parsed from, for languages whose printer prints code from the
+ * source text instead of the AST (Svelte), or whose code is parsed again
+ * later (Vue's `:class`).
+ */
+export async function classNodeEdits(nodes: ClassNodes, uno: UnoGenerator, text: string, locator: Locator): Promise<TextEdit[]> {
+  // Every node whose source text may change, with how to read its new text
+  const targets: [AstNode, () => string | undefined][] = []
+  const addString = (node: StringLiteralNode): void => {
+    targets.push([
+      node,
+      () => stringRaw(node),
+    ])
+  }
+  const addQuasi = (node: TemplateElementNode): void => {
+    targets.push([
+      node,
+      () => node.value.raw,
+    ])
+  }
+  nodes.strings.forEach(addString)
+  for (const template of nodes.templates)
+    template.quasis.forEach(addQuasi)
+  for (const group of nodes.keyGroups) {
+    for (const key of group.keys) {
+      if (isStringLiteral(key))
+        addString(key)
+      else
+        key.quasis.forEach(addQuasi)
+    }
+  }
+
+  await sortClassNodes(nodes, uno)
+
+  return targets.flatMap(([node, newText]) => {
+    const start = locator.locStart(node)
+    const end = locator.locEnd(node)
+    const raw = newText()
+    return raw === undefined || text.slice(start, end) === raw
+      ? []
+      : [
+          { start, end, raw },
+        ]
+  })
+}
+
+/** Applies edits that don't overlap. */
+export function applyEdits(text: string, edits: readonly TextEdit[]): string {
+  let result = text
+  for (const { start, end, raw } of edits.toSorted((a, b) => b.start - a.start))
+    result = result.slice(0, start) + raw + result.slice(end)
+  return result
 }
 
 /** Sorts the classes in collected nodes, in place. */

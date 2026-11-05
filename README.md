@@ -36,6 +36,7 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 
 - JSX attributes `class` and `className`
 - HTML: `class="…"` (`<script>` is sorted like any JS file)
+- Svelte (with `prettier-plugin-svelte`, see below): `class="…"`, also with `{…}` inside, and `class={…}` as a whole (Svelte 5 passes it through `clsx`, so object keys are classes); `clsx(…)` anywhere in the markup; `class:name` directives are left alone
 - Vue templates: `class="…"`, and `:class` / `v-bind:class` as a whole: strings, arrays, objects (keys are classes, as in Vue), conditionals; `<script>` is sorted like any JS/TS file
 - String arguments of `clsx`, `cn`, `cx`, `classnames`, `tv`, `cva`
 - Inside those: branches of `cond ? 'a' : 'b'`, both sides of `&&` / `||` / `??`, arrays, object **values**
@@ -54,6 +55,22 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 Duplicate classes are kept (`p-4 flex p-4` → `flex p-4 p-4`), as with the UnoCSS `order` rule.
 
 Whitespace between classes is collapsed to single spaces, so a class list split over several lines ends up on one line, as with `eslint --fix` and the UnoCSS `order` rule. A line break at the start or end of a string is dropped; in a template literal it becomes one space, which may separate classes from `${…}`.
+
+## Using with other Prettier plugins
+
+Prettier uses the parser of the **last** plugin that registers it. Put `prettier-plugin-unocss` after the language plugins it works with:
+
+```json
+{
+  "plugins": ["prettier-plugin-svelte", "prettier-plugin-unocss"]
+}
+```
+
+| Plugin                   | Needed for       |
+| ------------------------ | ---------------- |
+| `prettier-plugin-svelte` | `.svelte` (v4+)  |
+
+The language plugin is taken from your Prettier config; this plugin doesn't depend on it. In the wrong order, only `<script>` is sorted.
 
 ## Options
 
@@ -85,7 +102,7 @@ Icon collections from `@iconify-json/*` are not loaded for sorting, so `presetIc
 | JavaScript / TypeScript / JSX / TSX | ✅         |
 | HTML                                | ✅         |
 | Vue                                 | ✅         |
-| Svelte                              | 🚧 planned |
+| Svelte                              | ✅         |
 | Astro                               | 🚧 planned |
 
 ## Development

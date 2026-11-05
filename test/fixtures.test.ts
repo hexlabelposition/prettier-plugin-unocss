@@ -2,7 +2,7 @@ import type { Options } from 'prettier'
 import { format } from 'prettier'
 import { describe, expect, it } from 'vitest'
 import * as plugin from '../src/index'
-import { cases, readCase } from './fixture-cases'
+import { cases, languagePlugins, readCase } from './fixture-cases'
 
 // Run `pnpm test -u` to write missing outputs.
 describe('fixtures', () => {
@@ -11,7 +11,10 @@ describe('fixtures', () => {
     const opts: Options = {
       ...options,
       filepath,
-      plugins: [plugin],
+      plugins: [
+        ...languagePlugins(filepath),
+        plugin,
+      ],
     }
 
     const formatted = await format(input, opts)

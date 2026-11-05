@@ -14,6 +14,7 @@ const different: Record<string, string> = {
   'quotes-and-escapes': 'ESLint drops escapes and breaks the code',
   'template-expressions': 'ESLint breaks glued classes and doubles the space between `${…}`',
   'template-glued-expressions': 'ESLint breaks classes glued to `${…}`',
+  'svelte-expressions': 'ESLint decodes `&quot;` into a `class="…"` value, which breaks the markup, and doesn\'t sort `class={[…]}`',
   'variables': 'ESLint looks only one level deep',
   'variant-group-like-classes': 'ESLint expands `w-(--x)` into another class, `w---x`',
   'vue-bind-class': 'ESLint doesn\'t sort `:class`, breaks `&quot;` and drops `&nbsp;` in `class`',

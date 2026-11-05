@@ -1,8 +1,9 @@
-import type { Options } from 'prettier'
+import type { Options, Plugin } from 'prettier'
 import { existsSync, readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import * as sveltePlugin from 'prettier-plugin-svelte'
 
 // test/fixtures/<case>/input.<ext> is formatted and compared with output.<ext>.
 // Optional options.json holds extra Prettier options. All cases share
@@ -20,6 +21,16 @@ export function inputFile(name: string): string {
   if (!file)
     throw new Error(`No input.* in ${join(root, name)}`)
   return file
+}
+
+/**
+ * Plugins a language needs besides ours, which must come after them (see
+ * the README): Svelte needs `prettier-plugin-svelte`.
+ */
+export function languagePlugins(filepath: string): Plugin[] {
+  return filepath.endsWith('.svelte')
+    ? [sveltePlugin as Plugin]
+    : []
 }
 
 export interface FixtureCase {

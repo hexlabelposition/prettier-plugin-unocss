@@ -42,12 +42,13 @@ src/
     escapes.ts    Escapes and JSX entities: source text ↔ value
     html.ts       HTML: static `class` in Prettier's HTML AST (shared with Vue)
     vue.ts        Vue templates: `class` and `:class` in Prettier's HTML AST
+    svelte.ts     Svelte markup (prettier-plugin-svelte's AST), as text edits
   options.ts      Option definitions and their types
 ```
 
 Dependency direction: `index → parsers → (generator, transform) → sort`. `sort.ts` knows nothing about Prettier or ASTs; `transform/` knows nothing about UnoCSS internals beyond calling `sort`.
 
-> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`html.ts`, `vue.ts`; Svelte, Astro later).
+> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`html.ts`, `vue.ts`, `svelte.ts`; Astro later).
 
 ## Ordering algorithm (`sort.ts`)
 
@@ -122,6 +123,21 @@ Vue templates also have bound classes:
 
 The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), and sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
 
+## Svelte (`transform/svelte.ts`)
+
+Prettier has no Svelte support; `prettier-plugin-svelte` registers the `svelte` parser and the `svelte-ast` printer. Our `svelte` parser wraps its parser, found at runtime in `options.plugins` (the plugin objects Prettier loaded for the file), so it is not a dependency of ours and the user's own version is used. Prettier takes the parser of the last plugin that registers a name, so ours must be listed after it; the printer is found by `astFormat` and stays theirs. `preprocess` is delegated as well (it cuts out `<script>` / `<style>` content).
+
+The Svelte printer prints expressions from the **source text** (`getText` by `start` / `end`), not from the AST, so changing AST nodes would have no effect. Instead `svelteClassEdits` collects the changes as text edits (`classNodeEdits`, the same helper as Vue's `:class`), the parser applies them, parses the changed text again and sets it as `options.originalText`, as the plugin's own `preprocess` does. The only side effect: Prettier computes the cursor position (editors) from the text before sorting, so the cursor may move a little within a sorted line. Only the modern AST (plugin v4, Svelte 5) is supported; with v3 the markup is left alone.
+
+In the markup:
+
+- **`class="…"`**: a list of `Text` and `ExpressionTag` parts. Text has HTML entities, decoded as in JSX (decoding must give Svelte's `data`); new pieces must not bring quotes, `&` or braces. A single text part is sorted like a string; with expressions around, each text part is a chunk, like in a template literal: glued fragments (`bg-{c}-500`) stay in place, and an expression with whitespace or the value's edge on both sides is a class value whose object keys are *not* classes (it is turned into a string).
+- **`class={…}`**: a class value with object keys as classes, as Svelte 5 passes it through `clsx`.
+- **`class:name={…}`**: directives, never sorted.
+- Any other expression in the markup is searched for class contexts (`clsx(…)`, `{@const cls = …}`).
+
+The ESLint rule sorts the text parts of `class` and string branches of `{c ? '…' : '…'}` inside it, and `clsx(…)`; it decodes `&quot;` into a `class="…"` value, which breaks the markup.
+
 ## Key decisions
 
 | Decision                                          | Why                                                                                                         |
@@ -135,7 +151,7 @@ The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), a
 
 ## Known limitations
 
-- Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, prettier-plugin-svelte, …) needs a compatibility layer.
+- Only one plugin can wrap a given parser: combining with other parser-wrapping plugins (organize-imports, sort-imports, …) needs a compatibility layer. `prettier-plugin-svelte` is wrapped (see Svelte above).
 - Attributify mode is not supported.
 
 ## References

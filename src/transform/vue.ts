@@ -1,17 +1,14 @@
 import type { UnoGenerator } from '@unocss/core'
-import type { CollectOptions, StringLiteralNode, TemplateElementNode } from './collect'
+import type { CollectOptions } from './collect'
 import type { HtmlNode } from './html'
-import type { AstNode } from './walk'
-import { collectClassNodes, isStringLiteral } from './collect'
+import type { Locator } from './index'
+import { collectClassNodes } from './collect'
 import { sortStaticAttributes, walkElements } from './html'
-import { sortClassNodes } from './index'
-import { stringRaw } from './rewrite'
+import { applyEdits, classNodeEdits } from './index'
 
 /** A parser of a JavaScript expression, like Prettier's `__vue_expression`. */
-export interface ExpressionParser {
+export interface ExpressionParser extends Locator {
   parse: (text: string) => Promise<unknown> | unknown
-  locStart: (node: AstNode) => number
-  locEnd: (node: AstNode) => number
 }
 
 export interface VueOptions extends CollectOptions {
@@ -90,50 +87,9 @@ async function sortBindingValue(value: string | null | undefined, uno: UnoGenera
     return undefined
   }
   const expression = (root as { node?: unknown }).node ?? root
-  const nodes = collectClassNodes(expression, options, true)
-
-  // Every node whose source text may change, with how to read its new text
-  const targets: [AstNode, () => string | undefined][] = []
-  const addString = (node: StringLiteralNode): void => {
-    targets.push([
-      node,
-      () => stringRaw(node),
-    ])
-  }
-  const addQuasi = (node: TemplateElementNode): void => {
-    targets.push([
-      node,
-      () => node.value.raw,
-    ])
-  }
-  nodes.strings.forEach(addString)
-  for (const template of nodes.templates)
-    template.quasis.forEach(addQuasi)
-  for (const group of nodes.keyGroups) {
-    for (const key of group.keys) {
-      if (isStringLiteral(key))
-        addString(key)
-      else
-        key.quasis.forEach(addQuasi)
-    }
-  }
-
-  await sortClassNodes(nodes, uno)
-
-  const edits = targets.flatMap(([node, newText]) => {
-    const start = parser.locStart(node)
-    const end = parser.locEnd(node)
-    const raw = newText()
-    return raw === undefined || text.slice(start, end) === raw
-      ? []
-      : [
-          { start, end, raw },
-        ]
-  })
-  if (!edits.length)
-    return undefined
-  let result = text
-  for (const { start, end, raw } of edits.sort((a, b) => b.start - a.start))
-    result = result.slice(0, start) + raw + result.slice(end)
-  return result
+  const nodes = collectClassNodes(expression, options, 'class-value')
+  const edits = await classNodeEdits(nodes, uno, text, parser)
+  return edits.length
+    ? applyEdits(text, edits)
+    : undefined
 }

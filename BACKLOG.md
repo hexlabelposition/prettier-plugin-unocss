@@ -75,14 +75,15 @@ Each language is its own collector + fixtures. Order by usage among UnoCSS users
 
 - [x] Vue: `class`, `:class` (static strings, arrays, objects), `<script>` via the JS collector
 - [x] HTML: `class` attribute
-- [ ] Svelte: `class`, `class:` directives are NOT sorted; requires compatibility with `prettier-plugin-svelte` (see U5)
+- [x] Svelte: `class`, `class:` directives are NOT sorted; requires compatibility with `prettier-plugin-svelte` (see U5)
 - [ ] Astro: `class`, `class:list`; requires `prettier-plugin-astro` compatibility
 
 ## U5: Compatibility with other Prettier plugins
 
 Prettier lets only one plugin own a parser name. Study how `prettier-plugin-tailwindcss` solves this (it detects known plugins and wraps their parsers) and implement:
 
-- [ ] `prettier-plugin-svelte`, `prettier-plugin-astro`
+- [x] `prettier-plugin-svelte` (done with U4 Svelte)
+- [ ] `prettier-plugin-astro`
 - [ ] `prettier-plugin-organize-imports`, `@ianvs/prettier-plugin-sort-imports`, `@trivago/prettier-plugin-sort-imports`
 - [ ] Document the required plugin order in `plugins` (ours last)
 - [ ] Coexistence with `prettier-plugin-tailwindcss` is out of scope: document that only one sorter should be used

@@ -8,9 +8,11 @@ import tsParser from '@typescript-eslint/parser'
 import unocss from '@unocss/eslint-plugin'
 import { Linter } from 'eslint'
 import { format } from 'prettier'
+import svelteParser from 'svelte-eslint-parser'
 import vueParser from 'vue-eslint-parser'
 import * as plugin from '../src/index'
 import { DEFAULT_FUNCTIONS } from '../src/options'
+import { languagePlugins } from './fixture-cases'
 
 export interface CompareOptions {
   filepath: string
@@ -27,10 +29,12 @@ export async function formatWithEslint(code: string, options: CompareOptions): P
   })
   const { output, messages } = linter.verifyAndFix(code, [
     {
-      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,vue}'],
-      languageOptions: options.filepath.endsWith('.vue')
+      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,vue,svelte}'],
+      languageOptions: /\.(?:vue|svelte)$/.test(options.filepath)
         ? {
-            parser: vueParser,
+            parser: options.filepath.endsWith('.vue')
+              ? vueParser
+              : svelteParser,
             parserOptions: { parser: tsParser },
           }
         : {
@@ -64,13 +68,19 @@ export async function formatWithEslint(code: string, options: CompareOptions): P
   if (problem)
     throw new Error(`ESLint: ${problem.message}`)
 
-  return format(output, { filepath: options.filepath })
+  return format(output, {
+    filepath: options.filepath,
+    plugins: languagePlugins(options.filepath),
+  })
 }
 
 export async function formatWithPlugin(code: string, options: CompareOptions): Promise<string> {
   const prettierOptions: Options = {
     filepath: options.filepath,
-    plugins: [plugin],
+    plugins: [
+      ...languagePlugins(options.filepath),
+      plugin,
+    ],
     unoConfig: options.configPath,
   }
   if (options.unoFunctions)

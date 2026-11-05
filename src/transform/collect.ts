@@ -20,6 +20,8 @@ export interface TemplateLiteralNode extends AstNode {
   expressions: AstNode[]
 }
 
+export type CollectRoot = 'program' | 'class-value' | 'class-string'
+
 export interface CollectOptions {
   /** JSX attributes whose value holds classes (`unoAttributes`). */
   attributes: readonly string[]
@@ -202,14 +204,19 @@ function staticKeyName(property: AstNode): string | undefined {
  * but names everywhere else: in `tv({ base: '…' })`, `cva(…)` and JSX
  * attributes they are left alone.
  *
- * With `classValue`, `ast` is itself a class value, like the value of Vue's
- * `:class`: its strings are classes, and so are object keys
- * (`{ 'p-4 flex': on }`), as in clsx-like functions.
+ * `root` says what `ast` is:
+ *
+ * - `program`: code, searched for class contexts;
+ * - `class-value`: a class value itself, like the value of Vue's `:class`
+ *   or Svelte's `class={…}`: its strings are classes, and so are object keys
+ *   (`{ 'p-4 flex': on }`), as in clsx-like functions;
+ * - `class-string`: a class value that is turned into a string, like
+ *   `{…}` in Svelte's `class="p-4 {…}"`: object keys are not classes there.
  *
  * Nodes are collected first and rewritten later, because sorting is async and
  * mutating the AST while walking it is error-prone.
  */
-export function collectClassNodes(ast: unknown, options: CollectOptions, classValue = false): ClassNodes {
+export function collectClassNodes(ast: unknown, options: CollectOptions, root: CollectRoot = 'program'): ClassNodes {
   const attributes = new Set(options.attributes)
   const functions = new Set(options.functions)
   const variables = compileVariables(options.variables ?? [])
@@ -402,9 +409,9 @@ export function collectClassNodes(ast: unknown, options: CollectOptions, classVa
     })
   }
 
-  if (classValue)
-    collectClassValue(ast, true)
-  else
+  if (root === 'program')
     findClassContexts(ast)
+  else
+    collectClassValue(ast, root === 'class-value')
   return result
 }

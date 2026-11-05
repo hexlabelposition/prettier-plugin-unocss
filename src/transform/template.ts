@@ -45,6 +45,16 @@ export async function sortQuasi(quasi: TemplateElementNode, uno: UnoGenerator, o
   if (!units || cookedText(units) !== cooked)
     return undefined
 
+  return sortChunk(units, uno, TEMPLATE_UNSAFE, options)
+}
+
+/**
+ * Sorts the classes in a chunk of text between expressions: a template
+ * chunk, or the text of a Svelte `class="… {x} …"`. Glued fragments at the
+ * edges stay in place (`gluedLeft` / `gluedRight`); only whole classes in
+ * between are sorted. Leading and trailing whitespace is kept.
+ */
+export async function sortChunk(units: readonly Unit[], uno: UnoGenerator, unsafe: RegExp, options: QuasiOptions = {}): Promise<SortedText | undefined> {
   let start = 0
   let end = units.length
   if (options.gluedLeft) {
@@ -56,7 +66,7 @@ export async function sortQuasi(quasi: TemplateElementNode, uno: UnoGenerator, o
       end--
   }
 
-  const sorted = await sortUnits(units.slice(start, end), uno, TEMPLATE_UNSAFE)
+  const sorted = await sortUnits(units.slice(start, end), uno, unsafe)
   if (!sorted)
     return undefined
   const head = units.slice(0, start)
