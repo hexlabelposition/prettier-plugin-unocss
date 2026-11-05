@@ -16,6 +16,8 @@ const different: Record<string, string> = {
   'template-glued-expressions': 'ESLint breaks classes glued to `${…}`',
   'variables': 'ESLint looks only one level deep',
   'variant-group-like-classes': 'ESLint expands `w-(--x)` into another class, `w---x`',
+  'vue-bind-class': 'ESLint doesn\'t sort `:class`, breaks `&quot;` and drops `&nbsp;` in `class`',
+  'vue-bind-class-ts': 'ESLint doesn\'t sort `:class`',
 }
 
 const configPath = join(root, 'uno.config.ts')

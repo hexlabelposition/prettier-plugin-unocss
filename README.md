@@ -35,6 +35,7 @@ The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each
 ## What gets sorted
 
 - JSX attributes `class` and `className`
+- Vue templates: `class="…"`, and `:class` / `v-bind:class` as a whole: strings, arrays, objects (keys are classes, as in Vue), conditionals; `<script>` is sorted like any JS/TS file
 - String arguments of `clsx`, `cn`, `cx`, `classnames`, `tv`, `cva`
 - Inside those: branches of `cond ? 'a' : 'b'`, both sides of `&&` / `||` / `??`, arrays, object **values**
 - Object **keys** in clsx-like functions: `clsx({ 'p-4 flex': on })`, but never in `tv` / `cva`, where keys are names
@@ -58,7 +59,7 @@ Whitespace between classes is collapsed to single spaces, so a class list split 
 | Option          | Default                                           | Description                                                         |
 | --------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
 | `unoConfig`     | auto                                              | Path to the UnoCSS config file                                      |
-| `unoAttributes` | `["class", "className"]`                          | JSX attributes whose value is sorted                                |
+| `unoAttributes` | `["class", "className"]`                          | Attributes whose value is sorted (JSX, Vue `class` and `:class`)    |
 | `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose string arguments are sorted                         |
 | `unoVariables`  | `["^cls", "classNames?$"]`                        | Regular expressions (case-insensitive) for variable names to sort   |
 
@@ -82,7 +83,7 @@ Icon collections from `@iconify-json/*` are not loaded for sorting, so `presetIc
 | ----------------------------------- | ---------- |
 | JavaScript / TypeScript / JSX / TSX | ✅         |
 | HTML                                | 🚧 planned |
-| Vue                                 | 🚧 planned |
+| Vue                                 | ✅         |
 | Svelte                              | 🚧 planned |
 | Astro                               | 🚧 planned |
 

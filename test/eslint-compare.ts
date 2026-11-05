@@ -8,6 +8,7 @@ import tsParser from '@typescript-eslint/parser'
 import unocss from '@unocss/eslint-plugin'
 import { Linter } from 'eslint'
 import { format } from 'prettier'
+import vueParser from 'vue-eslint-parser'
 import * as plugin from '../src/index'
 import { DEFAULT_FUNCTIONS } from '../src/options'
 
@@ -26,13 +27,18 @@ export async function formatWithEslint(code: string, options: CompareOptions): P
   })
   const { output, messages } = linter.verifyAndFix(code, [
     {
-      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
-      languageOptions: {
-        parser: tsParser,
-        parserOptions: {
-          ecmaFeatures: { jsx: true },
-        },
-      },
+      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,vue}'],
+      languageOptions: options.filepath.endsWith('.vue')
+        ? {
+            parser: vueParser,
+            parserOptions: { parser: tsParser },
+          }
+        : {
+            parser: tsParser,
+            parserOptions: {
+              ecmaFeatures: { jsx: true },
+            },
+          },
       // Otherwise `eslint-disable` comments for other rules are removed
       linterOptions: { reportUnusedDisableDirectives: 'off' },
       plugins: { unocss: unocss as any },

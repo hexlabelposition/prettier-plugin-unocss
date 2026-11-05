@@ -1,5 +1,5 @@
 import type { UnoGenerator } from '@unocss/core'
-import type { CollectOptions, KeyGroup, StringLiteralNode, TemplateLiteralNode } from './collect'
+import type { ClassNodes, CollectOptions, KeyGroup, StringLiteralNode, TemplateLiteralNode } from './collect'
 import type { SortedText } from './escapes'
 import { collectClassNodes, isStringLiteral } from './collect'
 import { cookedText, decodeEscapes, decodeJsxEntities, jsxParserValue, sortUnits } from './escapes'
@@ -11,11 +11,16 @@ export type { CollectOptions } from './collect'
 // Characters a new piece must not bring into a string unescaped. Both quotes:
 // Prettier may switch the quote character, see `sortUnits`.
 const STRING_UNSAFE = /['"\\\n\r\u2028\u2029]/
-const JSX_UNSAFE = /['"&]/
+export const JSX_UNSAFE = /['"&]/
 
 /** Sorts the classes in every class string of an ESTree/Babel AST, in place. */
 export async function sortClassesInAst(ast: unknown, uno: UnoGenerator, options: CollectOptions): Promise<void> {
-  const { strings, templates, keyGroups, jsxStrings, stringRawTemplates } = collectClassNodes(ast, options)
+  await sortClassNodes(collectClassNodes(ast, options), uno)
+}
+
+/** Sorts the classes in collected nodes, in place. */
+export async function sortClassNodes(nodes: ClassNodes, uno: UnoGenerator): Promise<void> {
+  const { strings, templates, keyGroups, jsxStrings, stringRawTemplates } = nodes
 
   for (const node of strings) {
     const sorted = await sortString(node, uno, jsxStrings.has(node))
