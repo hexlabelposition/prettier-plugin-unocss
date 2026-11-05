@@ -31,6 +31,7 @@ src/
   index.ts        Plugin entry: exports `parsers` and `options`
   parsers.ts      Wraps built-in parsers (withSorting)
   generator.ts    Loads uno.config, caches UnoGenerator instances
+  icons.ts        Creates generators as under ESLint (no icon collections)
   sort.ts         Ordering algorithm (string in → string out)
   transform/
     index.ts      sortClassesInAst: collect, sort, rewrite
@@ -67,6 +68,7 @@ Adapted from UnoCSS `virtual-shared/integration/src/sort-rules.ts` (MIT), the sa
 - No config found → `undefined` → the file is left untouched, and `loadConfig` is not called at all (it would log a "Config file not found" error). We never guess presets.
 - A config that fails to load, or a `unoConfig` file that doesn't exist, is an error: Prettier reports it for the file, with the plugin name, the config path and the cause (`[prettier-plugin-unocss] Failed to load UnoCSS config …/uno.config.ts: …`). Silently skipping would look like "the plugin doesn't work". A failed load is not cached, so a fixed config is picked up on the next format.
 
+- Icon collections are not loaded. The generator is created with `process.env.ESLINT` set, as the UnoCSS ESLint plugin does: `@unocss/preset-icons` then skips its loader for installed `@iconify-json/*` packages (custom collections and `cdn` still work) and doesn't warn about icons it can't load. Loading collections is slow and sorting doesn't need the SVGs; it also keeps the order identical to the ESLint rule, where such icons are unknown classes and keep their place among the other unknown ones. The variable is set only while the config loads and the generator is created, not for the whole Prettier process (editors run other extensions in it). The preset reads it when it is created and when it creates its loader, which happens lazily on the first icon, so `icons.ts` triggers that with an icon name rejected before any loading (`prettier-plugin-unocss:prime`). Overlapping loads keep the variable until the last one ends.
 - The cache is invalidated when a config file changes, because editors keep Prettier running between saves. After a successful load, the modification time and size of each file in `sources` from `loadConfig` are stored: the config file itself and its `configDeps`. Before reusing a generator these files are `stat`ed again; any difference, including a file that appeared or disappeared, starts a new load. The config file's state is taken before loading, so an edit made during the load is not missed. Files the config imports are not tracked, because the loader doesn't report them (`unconfig`'s `dependencies` is empty with jiti's module cache off): list them in `configDeps`, as for the Vite plugin.
 
 ## AST rewriting (`transform/`)

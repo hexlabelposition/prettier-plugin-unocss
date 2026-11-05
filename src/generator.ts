@@ -5,6 +5,7 @@ import process from 'node:process'
 import { loadConfig } from '@unocss/config'
 import { createGenerator } from '@unocss/core'
 import { createConfigLoader } from 'unconfig'
+import { createLikeEslint } from './icons'
 
 export interface GeneratorOptions {
   /** Path of the formatted file, used to search for `uno.config.*` upwards. */
@@ -127,11 +128,13 @@ async function createFromConfig(configPath: string): Promise<{ generator: UnoGen
     // `sources` are the config file and its `configDeps`. Files the config
     // imports are not reported by the loader, so changes to them are picked up
     // only when they are listed in `configDeps` (as in the Vite plugin)
-    const { config, sources } = await loadConfig(dirname(configPath), configPath)
-    return {
-      generator: await createGenerator({ ...config, warn: false }),
-      sources,
-    }
+    let sources: string[] = []
+    const generator = await createLikeEslint(async () => {
+      const loaded = await loadConfig(dirname(configPath), configPath)
+      sources = loaded.sources
+      return createGenerator({ ...loaded.config, warn: false })
+    })
+    return { generator, sources }
   }
   catch (error) {
     const cause = error instanceof Error

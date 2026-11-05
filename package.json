@@ -44,6 +44,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^10.0.0",
+    "@iconify-json/svg-spinners": "^1.2.4",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@typescript-eslint/parser": "^8.72.1",
