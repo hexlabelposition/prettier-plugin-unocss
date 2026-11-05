@@ -62,6 +62,20 @@ Whitespace between classes is collapsed to single spaces, so a class list split 
 | `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose string arguments are sorted                         |
 | `unoVariables`  | `["^cls", "classNames?$"]`                        | Regular expressions (case-insensitive) for variable names to sort   |
 
+## Performance
+
+Loading `uno.config` and creating the UnoCSS generator happens once per config file and Prettier process, so it is paid by the first formatted file. Every next file pays only for sorting. In editors Prettier keeps running, so a save costs the per-file time; the config is loaded again only when it changes.
+
+`pnpm bench` formats 200 generated TSX files (about 170 lines and 50 class strings each, once formatted) with the `playground` config (`presetWind3`), median of 5 runs, on an Intel Core i5-11400H with Node 26:
+
+|                   | First file | Each next file |
+| ----------------- | ---------: | -------------: |
+| Prettier          |      99 ms |         6.3 ms |
+| Prettier + plugin |     482 ms |        10.9 ms |
+| Plugin overhead   |     383 ms |         4.6 ms |
+
+Icon collections from `@iconify-json/*` are not loaded for sorting, so `presetIcons` doesn't add to these numbers.
+
 ## Supported languages
 
 | Language                            | Status     |
@@ -78,6 +92,7 @@ Whitespace between classes is collapsed to single spaces, so a class list split 
 pnpm install
 pnpm test        # vitest
 pnpm play        # format playground/ with the local build
+pnpm bench       # first-file and per-file cost, see Performance
 pnpm lint
 ```
 

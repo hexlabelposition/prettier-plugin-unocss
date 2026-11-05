@@ -8,4 +8,8 @@ export default antfu({
     // Deliberately unsorted input for `pnpm play`.
     'playground/example.*',
   ],
+}, {
+  // The benchmark prints its results
+  files: ['bench/**'],
+  rules: { 'no-console': 'off' },
 })

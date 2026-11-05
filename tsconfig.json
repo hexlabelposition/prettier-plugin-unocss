@@ -19,6 +19,6 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test", "*.ts"],
+  "include": ["src", "test", "bench", "*.ts"],
   "exclude": ["test/fixtures/*/**"]
 }
