@@ -67,7 +67,7 @@ Adapted from UnoCSS `virtual-shared/integration/src/sort-rules.ts` (MIT), the sa
 - No config found → `undefined` → the file is left untouched, and `loadConfig` is not called at all (it would log a "Config file not found" error). We never guess presets.
 - A config that fails to load, or a `unoConfig` file that doesn't exist, is an error: Prettier reports it for the file, with the plugin name, the config path and the cause (`[prettier-plugin-unocss] Failed to load UnoCSS config …/uno.config.ts: …`). Silently skipping would look like "the plugin doesn't work". A failed load is not cached, so a fixed config is picked up on the next format.
 
-Open issue: the cache never invalidates. Editors keep Prettier alive between saves, so a changed `uno.config` is not picked up until restart. See BACKLOG.
+- The cache is invalidated when a config file changes, because editors keep Prettier running between saves. After a successful load, the modification time and size of each file in `sources` from `loadConfig` are stored: the config file itself and its `configDeps`. Before reusing a generator these files are `stat`ed again; any difference, including a file that appeared or disappeared, starts a new load. The config file's state is taken before loading, so an edit made during the load is not missed. Files the config imports are not tracked, because the loader doesn't report them (`unconfig`'s `dependencies` is empty with jiti's module cache off): list them in `configDeps`, as for the Vite plugin.
 
 ## AST rewriting (`transform/`)
 

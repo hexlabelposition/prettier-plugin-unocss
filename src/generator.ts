@@ -1,5 +1,5 @@
 import type { UnoGenerator } from '@unocss/core'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { loadConfig } from '@unocss/config'
@@ -18,10 +18,19 @@ const PREFIX = '[prettier-plugin-unocss]'
 /** Config file names, the same list `@unocss/config` searches for. */
 const CONFIG_FILES = ['unocss.config', 'uno.config']
 
+interface CacheEntry {
+  generator: Promise<UnoGenerator>
+  /**
+   * Files the config was loaded from, with their state at load time; set once
+   * the load succeeds. While it is `undefined`, the load is still running.
+   */
+  files?: Map<string, string>
+}
+
 // Prettier formats many files per run and building a generator is the
 // expensive part, so there is one generator per config file. The cache stores
 // promises, so parallel requests for the same config share one load.
-const cache = new Map<string, Promise<UnoGenerator>>()
+const cache = new Map<string, CacheEntry>()
 
 /**
  * Returns the UnoCSS generator for a formatted file.
@@ -46,18 +55,51 @@ export async function getGenerator(options: GeneratorOptions): Promise<UnoGenera
   if (options.unoConfig && !existsSync(configPath))
     throw new Error(`${PREFIX} UnoCSS config not found: ${configPath} (the \`unoConfig\` option)`)
 
-  let generator = cache.get(configPath)
-  if (!generator) {
-    generator = createFromConfig(configPath)
-    cache.set(configPath, generator)
-    // Don't keep a failure: once the config is fixed, the next format (in an
-    // editor, Prettier keeps running) loads it again
-    generator.catch(() => {
-      if (cache.get(configPath) === generator)
-        cache.delete(configPath)
-    })
+  const cached = cache.get(configPath)
+  if (cached && !(cached.files && changed(cached.files)))
+    return cached.generator
+
+  // Not loaded yet, or a config file changed since (editors keep Prettier
+  // running between saves). The config file's state is taken before loading,
+  // so an edit made during the load is not missed
+  const configState = fileState(configPath)
+  const entry: CacheEntry = {
+    generator: createFromConfig(configPath).then(({ generator, sources }) => {
+      entry.files = new Map(sources.map(file => [
+        file,
+        fileState(file),
+      ]))
+      entry.files.set(configPath, configState)
+      return generator
+    }),
   }
-  return generator
+  cache.set(configPath, entry)
+  // Don't keep a failure: once the config is fixed, the next format loads it
+  // again
+  entry.generator.catch(() => {
+    if (cache.get(configPath) === entry)
+      cache.delete(configPath)
+  })
+  return entry.generator
+}
+
+/**
+ * The state of a file to compare later: modification time and size, or
+ * `missing`. A file may also appear, e.g. a `configDeps` entry created later.
+ */
+function fileState(file: string): string {
+  const stats = statSync(file, { throwIfNoEntry: false })
+  return stats
+    ? `${stats.mtimeMs}:${stats.size}`
+    : 'missing'
+}
+
+function changed(files: Map<string, string>): boolean {
+  for (const [file, state] of files) {
+    if (fileState(file) !== state)
+      return true
+  }
+  return false
 }
 
 /**
@@ -75,14 +117,21 @@ async function findConfig(cwd: string): Promise<string | undefined> {
 }
 
 /**
- * Loads a config file and creates a generator from it. Errors name the plugin
+ * Loads a config file and creates a generator from it, returning the files
+ * that should invalidate it. Errors name the plugin
  * and the config file, so a broken config is easy to find from Prettier's
  * output; the original error is the `cause`.
  */
-async function createFromConfig(configPath: string): Promise<UnoGenerator> {
+async function createFromConfig(configPath: string): Promise<{ generator: UnoGenerator, sources: string[] }> {
   try {
-    const { config } = await loadConfig(dirname(configPath), configPath)
-    return await createGenerator({ ...config, warn: false })
+    // `sources` are the config file and its `configDeps`. Files the config
+    // imports are not reported by the loader, so changes to them are picked up
+    // only when they are listed in `configDeps` (as in the Vite plugin)
+    const { config, sources } = await loadConfig(dirname(configPath), configPath)
+    return {
+      generator: await createGenerator({ ...config, warn: false }),
+      sources,
+    }
   }
   catch (error) {
     const cause = error instanceof Error

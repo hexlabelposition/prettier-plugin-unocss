@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getGenerator } from '../src/generator'
 
 const configs = fileURLToPath(new URL('./configs', import.meta.url))
@@ -103,6 +103,77 @@ describe('getGenerator', () => {
 
       await writeFile(configPath, 'export default { shortcuts: { fixed: \'p-4\' } }\n')
       expect(shortcutNames(await getGenerator({ unoConfig: configPath }))).toEqual(['fixed'])
+    })
+  })
+
+  describe('cache invalidation', () => {
+    let dir: string
+    let configPath: string
+
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), 'prettier-plugin-unocss-'))
+      configPath = join(dir, 'uno.config.ts')
+    })
+
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+
+    it('reloads the config when it changes', async () => {
+      await writeFile(configPath, 'export default { shortcuts: { before: \'p-4\' } }\n')
+      const first = await getGenerator({
+        filepath: join(dir, 'file.tsx'),
+      })
+      expect(shortcutNames(first)).toEqual(['before'])
+      expect(await getGenerator({
+        filepath: join(dir, 'file.tsx'),
+      })).toBe(first)
+
+      await writeFile(configPath, 'export default { shortcuts: { after: \'p-4\' } }\n')
+      const second = await getGenerator({
+        filepath: join(dir, 'file.tsx'),
+      })
+      expect(second).not.toBe(first)
+      expect(shortcutNames(second)).toEqual(['after'])
+      expect(await getGenerator({
+        filepath: join(dir, 'file.tsx'),
+      })).toBe(second)
+    })
+
+    it('reloads the config when a file from configDeps changes', async () => {
+      const shared = join(dir, 'shared.ts')
+      await writeFile(shared, 'export const shortcuts = { before: \'p-4\' }\n')
+      await writeFile(configPath, [
+        'import { shortcuts } from \'./shared\'',
+        'export default { shortcuts, configDeps: [\'./shared.ts\'] }',
+        '',
+      ].join('\n'))
+      expect(shortcutNames(await getGenerator({ unoConfig: configPath }))).toEqual(['before'])
+
+      await writeFile(shared, 'export const shortcuts = { after: \'p-4\' }\n')
+      expect(shortcutNames(await getGenerator({ unoConfig: configPath }))).toEqual(['after'])
+    })
+
+    it('reloads the config when a missing file from configDeps appears', async () => {
+      await writeFile(configPath, [
+        'import { existsSync } from \'node:fs\'',
+        `const extra = ${JSON.stringify(join(dir, 'extra.ts'))}`,
+        'export default { shortcuts: existsSync(extra) ? { extra: \'p-4\' } : {}, configDeps: [extra] }',
+        '',
+      ].join('\n'))
+      expect(shortcutNames(await getGenerator({ unoConfig: configPath }))).toEqual([])
+
+      await writeFile(join(dir, 'extra.ts'), '\n')
+      expect(shortcutNames(await getGenerator({ unoConfig: configPath }))).toEqual(['extra'])
+    })
+
+    it('shares a load in progress instead of starting another one', async () => {
+      await writeFile(configPath, 'export default {}\n')
+      const [a, b] = await Promise.all([
+        getGenerator({ unoConfig: configPath }),
+        getGenerator({ unoConfig: configPath }),
+      ])
+      expect(a).toBe(b)
     })
   })
 
