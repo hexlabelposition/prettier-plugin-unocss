@@ -2,20 +2,31 @@
 
 > 🚧 Work in progress, not published to npm yet.
 
-A [Prettier](https://prettier.io) plugin that sorts [UnoCSS](https://unocss.dev) utilities in the same order UnoCSS emits them in the generated CSS, using **your own `uno.config`**, so custom rules, shortcuts and presets are sorted correctly.
-
-Think [`prettier-plugin-tailwindcss`](https://github.com/tailwindlabs/prettier-plugin-tailwindcss), but for UnoCSS.
+A [Prettier](https://prettier.io) plugin that sorts [UnoCSS](https://unocss.dev) utilities, using **your own `uno.config`**. Custom rules, shortcuts and presets are sorted correctly, in the same order as the UnoCSS ESLint rule.
 
 ```diff
 - <div className="shadow md:p-8 p-4 my-custom rounded-lg bg-white flex">
 + <div className="my-custom flex rounded-lg bg-white p-4 shadow md:p-8">
 ```
 
+Think [`prettier-plugin-tailwindcss`](https://github.com/tailwindlabs/prettier-plugin-tailwindcss), but for UnoCSS.
+
+| Section                                                                 | What's inside                                                |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Why](#why)                                                             | What the plugin is for                                       |
+| [Installation](#installation)                                           | Install and enable it                                        |
+| [What gets sorted](#what-gets-sorted)                                   | Languages, attributes and functions                          |
+| [How classes are ordered](#how-classes-are-ordered)                     | The order, duplicates, line breaks                           |
+| [Using with other Prettier plugins](#using-with-other-prettier-plugins) | Plugin order, Svelte, Astro, import sorters                  |
+| [Options](#options)                                                     | `unoConfig`, `unoAttributes`, `unoFunctions`, `unoVariables` |
+| [Performance](#performance)                                             | Cost of the first and every next file                        |
+| [Development](#development)                                             | Scripts and tests                                            |
+| [Credits](#credits)                                                     | Where the code comes from                                    |
+| [License](#license)                                                     | MIT                                                          |
+
 ## Why
 
-UnoCSS already ships class sorting as an ESLint rule ([`@unocss/order`](https://unocss.dev/integrations/eslint)). Many projects format with Prettier only, and want sorting to happen on save together with the rest of formatting. This plugin brings the same ordering to Prettier.
-
-Related discussion in the UnoCSS repository: [unocss/unocss#5411](https://github.com/unocss/unocss/discussions/5411).
+UnoCSS already sorts classes with the ESLint rule [`@unocss/order`](https://unocss.dev/integrations/eslint). This plugin brings the same order to Prettier, for projects that format with Prettier and want classes sorted on save. Discussion: [unocss/unocss#5411](https://github.com/unocss/unocss/discussions/5411).
 
 ## Installation
 
@@ -30,36 +41,38 @@ pnpm add -D prettier prettier-plugin-unocss
 }
 ```
 
-The plugin finds `uno.config.*` (or `unocss.config.*`) by searching up from each formatted file, so monorepos with several configs work. If no config is found, the file is left untouched.
+That's it. The plugin finds `uno.config.*` (or `unocss.config.*`) next to each file or in a parent directory, so monorepos with several configs work. A file without a config is left untouched.
 
 ## What gets sorted
 
-- JSX attributes `class` and `className`
-- HTML: `class="…"` (`<script>` is sorted like any JS file)
-- Astro (with `prettier-plugin-astro`, see below): `class="…"` and `class={…}` as in JSX, `class:list={…}` as a whole (object keys are classes), `clsx(…)` in the markup; the frontmatter and `<script>` like any JS/TS file
-- Svelte (with `prettier-plugin-svelte`, see below): `class="…"`, also with `{…}` inside, and `class={…}` as a whole (Svelte 5 passes it through `clsx`, so object keys are classes); `clsx(…)` anywhere in the markup; `class:name` directives are left alone
-- Vue templates: `class="…"`, and `:class` / `v-bind:class` as a whole: strings, arrays, objects (keys are classes, as in Vue), conditionals; `<script>` is sorted like any JS/TS file
-- String arguments of `clsx`, `cn`, `cx`, `classnames`, `tv`, `cva`
-- Inside those: branches of `cond ? 'a' : 'b'`, both sides of `&&` / `||` / `??`, arrays, object **values**
-- Object **keys** in clsx-like functions: `clsx({ 'p-4 flex': on })`, but never in `tv` / `cva`, where keys are names
-- Tagged templates of the functions above, e.g. ``tw`...` ``, and ``String.raw`...` ``
-- Template literals, keeping fragments glued to `${…}` (like `bg-${color}`) in place; strings inside a standalone `${…}` are sorted too
-- Values of variables whose name matches `unoVariables`: `const clsButton = '…'`, `const buttonClassNames = { … }`
+| Where               | What                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| JS / TS / JSX / TSX | `class` and `className`, `clsx` / `cn` / `cx` / `classnames` / `tv` / `cva` calls, class variables (`const clsButton = '…'`) |
+| Vue                 | `class`, `:class` (strings, arrays, objects), attributify (`<div p-4 flex>`)                                                 |
+| HTML                | `class`                                                                                                                      |
+| Svelte              | `class="…"`, `class={…}`; `class:name` directives are left alone                                                             |
+| Astro               | `class`, `class:list`                                                                                                        |
+
+`<script>` blocks and the Astro frontmatter are sorted like any JS/TS file.
+
+Inside class functions and attributes, the plugin also follows conditionals (`on ? 'a b' : 'c'`), `&&` / `||` / `??`, arrays, object values, template literals and tagged templates (``tw`…` ``). Object **keys** are classes in `clsx`-like functions (`clsx({ 'p-4 flex': on })`), but never in `tv` / `cva`, where they are names.
+
+Attributify utilities are sorted only when `presetAttributify` is in your config.
 
 ## How classes are ordered
 
-1. Classes unknown to UnoCSS go first, in their original order.
-2. Known utilities follow, in the order of the rules that match them in your config.
-3. Utilities with variants (`hover:`, `md:`, `dark:`) go after those without; more variants → further back.
-4. Variant groups `hover:(a b)` are sorted inside and kept collapsed.
+1. Classes UnoCSS doesn't know come first, in their original order.
+2. Then utilities, in the order of the rules that match them in your config.
+3. Utilities with variants (`hover:`, `md:`) come after the ones without; more variants, further back.
+4. Variant groups `hover:(a b)` are sorted inside and stay grouped.
 
-Duplicate classes are kept (`p-4 flex p-4` → `flex p-4 p-4`), as with the UnoCSS `order` rule.
+Like `eslint --fix` with the UnoCSS rule, the plugin keeps duplicate classes (`p-4 flex p-4` → `flex p-4 p-4`) and puts a class list split over several lines on one line.
 
-Whitespace between classes is collapsed to single spaces, so a class list split over several lines ends up on one line, as with `eslint --fix` and the UnoCSS `order` rule. A line break at the start or end of a string is dropped; in a template literal it becomes one space, which may separate classes from `${…}`.
+Formatting never changes what your code does: when a string is ambiguous (unusual escapes, a class glued to `${…}`), it is left alone.
 
 ## Using with other Prettier plugins
 
-Prettier uses the parser of the **last** plugin that registers it. Put `prettier-plugin-unocss` **last** in `plugins`:
+Put `prettier-plugin-unocss` **last** in `plugins`:
 
 ```json
 {
@@ -72,7 +85,7 @@ Prettier uses the parser of the **last** plugin that registers it. Put `prettier
 }
 ```
 
-This plugin builds on the parser of the plugin before it, so their changes are kept and classes are sorted on top:
+Prettier lets only one plugin own a parser, the last one. This plugin builds on the parser of the plugins before it, so their changes are kept and classes are sorted on top. Tested with:
 
 | Plugin                                  | Notes                      |
 | --------------------------------------- | -------------------------- |
@@ -82,24 +95,22 @@ This plugin builds on the parser of the plugin before it, so their changes are k
 | `@ianvs/prettier-plugin-sort-imports`   | JS, TS, Vue                |
 | `@trivago/prettier-plugin-sort-imports` | JS, TS, Vue, Svelte        |
 
-Plugins are taken from your Prettier config; this plugin doesn't depend on them. In the wrong order the other plugin's parser is used: Svelte and Astro markup is not sorted (scripts still are), and with an import sorter after this plugin, nothing is sorted in that file type.
-
-Use only one class sorter: `prettier-plugin-tailwindcss` sorts classes too, by Tailwind's order, and the two plugins would undo each other's work.
+Don't use it together with `prettier-plugin-tailwindcss`: both sort classes, by different orders.
 
 ## Options
 
-| Option          | Default                                           | Description                                                         |
-| --------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
-| `unoConfig`     | auto                                              | Path to the UnoCSS config file                                      |
-| `unoAttributes` | `["class", "className"]`                          | Attributes whose value is sorted (JSX, HTML, Vue `class`/`:class`)  |
-| `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose string arguments are sorted                         |
-| `unoVariables`  | `["^cls", "classNames?$"]`                        | Regular expressions (case-insensitive) for variable names to sort   |
+| Option          | Default                                           | Description                                               |
+| --------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| `unoConfig`     | found automatically                               | Path to the UnoCSS config file                            |
+| `unoAttributes` | `["class", "className"]`                          | Attributes whose value is sorted                          |
+| `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose arguments are sorted                      |
+| `unoVariables`  | `["^cls", "classNames?$"]`                        | Regular expressions (case-insensitive) for variable names |
 
 ## Performance
 
-Loading `uno.config` and creating the UnoCSS generator happens once per config file and Prettier process, so it is paid by the first formatted file. Every next file pays only for sorting. In editors Prettier keeps running, so a save costs the per-file time; the config is loaded again only when it changes.
+The config is loaded once per Prettier process, so the first file pays for it; every next file pays only for sorting. In an editor Prettier keeps running, so a save costs only the per-file time, and the config is loaded again only when it changes.
 
-`pnpm bench` formats 200 generated TSX files (about 170 lines and 50 class strings each, once formatted) with the `playground` config (`presetWind3`), median of 5 runs, on an Intel Core i5-11400H with Node 26:
+`pnpm bench`: 200 generated TSX files with about 50 class strings each, median of 5 runs, Intel Core i5-11400H, Node 26, `presetWind3`:
 
 |                   | First file | Each next file |
 | ----------------- | ---------: | -------------: |
@@ -107,39 +118,28 @@ Loading `uno.config` and creating the UnoCSS generator happens once per config f
 | Prettier + plugin |     482 ms |        10.9 ms |
 | Plugin overhead   |     383 ms |         4.6 ms |
 
-Icon collections from `@iconify-json/*` are not loaded for sorting, so `presetIcons` doesn't add to these numbers.
-
-## Supported languages
-
-| Language                            | Status     |
-| ----------------------------------- | ---------- |
-| JavaScript / TypeScript / JSX / TSX | ✅         |
-| HTML                                | ✅         |
-| Vue                                 | ✅         |
-| Svelte                              | ✅         |
-| Astro                               | ✅         |
+`presetWind4`, `presetMini` and `presetIcons` give about the same numbers. Icon collections are not loaded for sorting.
 
 ## Development
 
 ```bash
 pnpm install
-pnpm test        # vitest
-pnpm play        # format playground/ with the local build
-pnpm bench       # first-file and per-file cost, see Performance
+pnpm test        # Vitest
+pnpm play        # format playground/example.tsx with the local build
+pnpm bench       # benchmark, see Performance
 pnpm lint
+pnpm typescheck
 ```
 
-`test/eslint.test.ts` checks that every fixture gives the same result as `eslint --fix` with the UnoCSS `order` rule, except for the documented differences. To compare on real files: `CORPUS=path/to/project pnpm vitest run test/eslint-corpus.test.ts`.
+Tests check that every fixture gives the same result as `eslint --fix` with the UnoCSS rules, apart from documented differences. To compare on a real project: `CORPUS=path/to/project pnpm vitest run test/eslint-corpus.test.ts`.
 
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for how the plugin works and [`BACKLOG.md`](./BACKLOG.md) for what's next.
-
-## Disclaimer
-
-This is an independent community project. It is not affiliated with or endorsed by the UnoCSS team.
+How it works: [`ARCHITECTURE.md`](./ARCHITECTURE.md). What's next: [`BACKLOG.md`](./BACKLOG.md).
 
 ## Credits
 
-The ordering algorithm is adapted from UnoCSS's internal `sort-rules` utility used by `@unocss/eslint-plugin` ([MIT](https://github.com/unocss/unocss/blob/main/LICENSE)). The parser-wrapping approach follows `prettier-plugin-tailwindcss`.
+The ordering algorithm is adapted from the `sortRules` utility of [UnoCSS](https://github.com/unocss/unocss) ([MIT](https://github.com/unocss/unocss/blob/main/LICENSE)), used by its ESLint plugin. The parser wrapping follows `prettier-plugin-tailwindcss`.
+
+This is an independent community project, not affiliated with or endorsed by the UnoCSS team.
 
 ## License
 

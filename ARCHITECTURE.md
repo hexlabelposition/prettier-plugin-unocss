@@ -2,191 +2,216 @@
 
 How `prettier-plugin-unocss` works, and why it is built this way.
 
+| Section                                                                         | What's inside                                                                                   |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Principles](#principles)                                                       | The rules every decision follows                                                                |
+| [Pipeline](#pipeline)                                                           | How a file goes through the plugin, per language                                                |
+| [Modules](#modules)                                                             | Source files and their dependencies                                                             |
+| [Ordering](#ordering-sortts)                                                    | The ordering algorithm, adapted from UnoCSS                                                     |
+| [Config loading](#config-loading-generatorts-iconsts)                           | Finding, caching, reloading the config; icons                                                   |
+| [Finding classes](#finding-classes-transformcollectts)                          | Class contexts, positions, object keys, templates                                               |
+| [Writing strings back safely](#writing-strings-back-safely-escapests-rewritets) | Escapes, whitespace, changed classes, duplicates                                                |
+| [Languages](#languages)                                                         | [HTML and Vue](#html-and-vue-htmlts-vuets), [Svelte](#svelte-sveltets), [Astro](#astro-astrots) |
+| [Parsers of other plugins](#parsers-of-other-plugins-parsersts)                 | Building on Svelte, Astro and import sorter parsers                                             |
+| [Comparison with the ESLint rules](#comparison-with-the-eslint-rules)           | Where and why the output differs                                                                |
+| [Key decisions](#key-decisions)                                                 | Short answers to "why this way"                                                                 |
+| [Known limitations](#known-limitations)                                         | What is not supported                                                                           |
+| [References](#references)                                                       | Upstream code and docs                                                                          |
+
+## Principles
+
+1. **Formatting never changes behaviour.** When unsure, don't touch: a missed sort is acceptable, a broken string is not. Every check below that "leaves a string alone" follows from this.
+2. **Same order as the UnoCSS ESLint rules** (`order`, `order-attributify`). A project switching between the two should see no diff. Where we differ, it is on purpose and listed in [Comparison with the ESLint rules](#comparison-with-the-eslint-rules).
+3. **Prettier does the formatting.** We only change the contents of class strings (and the order of attributify attributes); Prettier's parsers and printers do everything else.
+4. **No config, no sorting.** Without a `uno.config` the file is left untouched: guessing presets would give wrong orders silently.
+
 ## Pipeline
 
 ```text
 source text
   │
   ▼
-built-in Prettier parser (babel / typescript / …)       ← unchanged
+base parser (Prettier's, or another plugin's)    ← unchanged
   │  AST
   ▼
-plugin: collect class strings → sort each → rewrite AST  ← our code
+collect class strings → sort each → write back   ← our code
   │  AST
   ▼
-built-in Prettier printer                                ← unchanged
+base printer                                     ← unchanged
   │
   ▼
 formatted text
 ```
 
-The plugin **does not parse or print code itself**. It registers parsers under the same names as Prettier's built-in ones (`babel`, `typescript`, …). Each of them calls the original parser, then rewrites class strings in the resulting AST and returns it. Prettier's own printer formats the result.
+The plugin registers parsers under the names of existing ones (`babel`, `typescript`, `vue`, `svelte`, …). Each calls the base parser, sorts the classes in the AST it returns, and hands it to the base printer. This is the same approach as `prettier-plugin-tailwindcss`.
 
-This is the same approach as `prettier-plugin-tailwindcss`.
+How the sorted classes reach the output depends on how the printer prints:
+
+| Where             | Base parser and AST                  | How changes are written                                                     |
+| ----------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| JS / TS / JSX     | Prettier's, ESTree / Babel           | In place: string `value` and `raw`                                          |
+| HTML, Vue `class` | Prettier's HTML parser               | In place: the attribute's `value`                                           |
+| Vue `:class`      | Parsed by us with `__vue_expression` | Text edits in the attribute value; Prettier formats the expression later    |
+| Vue attributify   | Prettier's HTML parser               | Attributes reordered in `element.attrs`                                     |
+| Svelte            | `prettier-plugin-svelte`             | Text edits on the source, parsed again; the printer prints from source text |
+| Astro             | `prettier-plugin-astro`, JSX AST     | In place, as JSX                                                            |
 
 ## Modules
 
 ```text
 src/
   index.ts        Plugin entry: exports `parsers` and `options`
+  options.ts      Option definitions and their types
   parsers.ts      Wraps parsers: Prettier's or other plugins' (wrapParser)
-  generator.ts    Loads uno.config, caches UnoGenerator instances
+  generator.ts    Finds and loads uno.config, caches UnoGenerator instances
   icons.ts        Creates generators as under ESLint (no icon collections)
   sort.ts         Ordering algorithm (string in → string out)
   transform/
-    index.ts      sortClassesInAst: collect, sort, rewrite
+    index.ts      Sorts collected nodes; text edits for source-printed languages
     walk.ts       Generic AST walker
     collect.ts    Finds class strings in an ESTree/Babel AST
     rewrite.ts    Writes sorted strings back (value + raw)
-    template.ts   Template literal handling
-    escapes.ts    Escapes and JSX entities: source text ↔ value
-    html.ts       HTML: static `class` in Prettier's HTML AST (shared with Vue)
-    vue.ts        Vue templates: `class`, `:class` and attributify in Prettier's HTML AST
-    svelte.ts     Svelte markup (prettier-plugin-svelte's AST), as text edits
-    astro.ts      Astro markup (prettier-plugin-astro's JSX AST)
-  options.ts      Option definitions and their types
+    template.ts   Template literals
+    escapes.ts    Escapes and HTML entities: source text ↔ value
+    html.ts       HTML: static `class` (shared with Vue)
+    vue.ts        Vue templates: `class`, `:class`, attributify
+    svelte.ts     Svelte markup, as text edits
+    astro.ts      Astro markup (a JSX AST)
 ```
 
-Dependency direction: `index → parsers → (generator, transform) → sort`. `sort.ts` knows nothing about Prettier or ASTs; `transform/` knows nothing about UnoCSS internals beyond calling `sort`.
+Dependencies point one way: `index → parsers → (generator, transform) → sort`. `sort.ts` knows nothing about Prettier or ASTs; `transform/` knows nothing about UnoCSS beyond calling `sort`. Each language has its own collector, because each has its own AST shape.
 
-> Language-specific transforms live next to `collect.ts` as separate collectors, because each has its own AST shape (`html.ts`, `vue.ts`, `svelte.ts`, `astro.ts`).
+## Ordering (`sort.ts`)
 
-## Ordering algorithm (`sort.ts`)
+A copy of `sortRules` from UnoCSS (`virtual-shared/integration/src/sort-rules.ts`, MIT), the function behind the ESLint `order` rule. It isn't published yet: [unocss/unocss#5439](https://github.com/unocss/unocss/pull/5439) exports it from `@unocss/core`, and then the copy goes away.
 
-Adapted from UnoCSS `virtual-shared/integration/src/sort-rules.ts` (MIT), the same function the ESLint `order` rule uses. Keeping the output identical to the ESLint rule is a goal: a project switching between the two should see no diff.
-
-1. Expand variant groups: `hover:(a b)` → `hover:a hover:b` (`parseVariantGroup`).
+1. Expand variant groups: `hover:(a b)` → `hover:a hover:b`.
 2. For each class, `uno.parseToken(cls)`:
-   - `null` → unknown class, goes to the front, original order kept;
-   - otherwise rank = `token[0][0]` (index of the matched rule) + `variantHandlers.length × 100_000`.
-3. Sort by rank, ties broken alphabetically.
-4. Collapse variant groups back (`collapseVariantGroup`).
+   - `null`: unknown, goes to the front in its original order;
+   - otherwise rank = index of the matched rule + number of variants × 100 000.
+3. Sort by rank, ties alphabetically.
+4. Collapse variant groups back.
 
-`uno.config.details = true` is required: without it `parseToken` does not return variant handlers.
+`uno.config.details = true` is required, otherwise `parseToken` returns no variant handlers. `sortPreservingEdges` is ours: it keeps one space at the edges of template chunks, where it separates classes from `${…}`.
 
-## Config loading (`generator.ts`)
+## Config loading (`generator.ts`, `icons.ts`)
 
-- First, find the config file: `unocss.config.*` / `uno.config.*`, searching up from the formatted file's directory, or the `unoConfig` path resolved from `cwd`. The search uses `unconfig`'s `findConfigs()` with the same file names as `@unocss/config`, so it finds exactly the file `loadConfig` would load, but without loading it. This makes monorepos work.
-- Then `loadConfig` from `@unocss/config` loads that file and a `UnoGenerator` is created from it.
-- One `UnoGenerator` per **config file path**, cached in a `Map` of **promises** (so parallel requests share one load). Files in different directories under the same config share one generator; the per-file cost of the search is only a few `stat` calls.
-- No config found → `undefined` → the file is left untouched, and `loadConfig` is not called at all (it would log a "Config file not found" error). We never guess presets.
-- A config that fails to load, or a `unoConfig` file that doesn't exist, is an error: Prettier reports it for the file, with the plugin name, the config path and the cause (`[prettier-plugin-unocss] Failed to load UnoCSS config …/uno.config.ts: …`). Silently skipping would look like "the plugin doesn't work". A failed load is not cached, so a fixed config is picked up on the next format.
+**Finding.** `uno.config.*` / `unocss.config.*` is searched for upwards from the formatted file, or `unoConfig` is resolved from `cwd`. The search uses `unconfig`'s `findConfigs()` with the same names as `@unocss/config`, so it finds the file `loadConfig` would load without loading it. No file → no sorting, and `loadConfig` isn't called (it would log "Config file not found").
 
-- Icon collections are not loaded. The generator is created with `process.env.ESLINT` set, as the UnoCSS ESLint plugin does: `@unocss/preset-icons` then skips its loader for installed `@iconify-json/*` packages (custom collections and `cdn` still work) and doesn't warn about icons it can't load. Loading collections is slow and sorting doesn't need the SVGs; it also keeps the order identical to the ESLint rule, where such icons are unknown classes and keep their place among the other unknown ones. The variable is set only while the config loads and the generator is created, not for the whole Prettier process (editors run other extensions in it). The preset reads it when it is created and when it creates its loader, which happens lazily on the first icon, so `icons.ts` triggers that with an icon name rejected before any loading (`prettier-plugin-unocss:prime`). Overlapping loads keep the variable until the last one ends.
-- The cache is invalidated when a config file changes, because editors keep Prettier running between saves. After a successful load, the modification time and size of each file in `sources` from `loadConfig` are stored: the config file itself and its `configDeps`. Before reusing a generator these files are `stat`ed again; any difference, including a file that appeared or disappeared, starts a new load. The config file's state is taken before loading, so an edit made during the load is not missed. Files the config imports are not tracked, because the loader doesn't report them (`unconfig`'s `dependencies` is empty with jiti's module cache off): list them in `configDeps`, as for the Vite plugin.
+**Cache.** One `UnoGenerator` per config file, in a `Map` of promises, so parallel files share one load. A file elsewhere under the same config costs only a few `stat` calls.
 
-## AST rewriting (`transform/`)
+**Invalidation.** Editors keep Prettier running, so a changed config must be picked up. After a load, the modification time and size of every file in `sources` (the config and its `configDeps`) are stored; before reuse they are `stat`ed again, and any difference starts a new load. The config's state is taken before loading, so an edit during the load isn't missed. Files the config imports are not tracked (the loader doesn't report them): list them in `configDeps`, as for the Vite plugin.
 
-**Collection.** A class context is:
+**Errors.** A config that fails to load, or a `unoConfig` that doesn't exist, is reported by Prettier for the file, with the path and the cause (`[prettier-plugin-unocss] Failed to load UnoCSS config …: …`). Skipping silently would look like the plugin doesn't work. Failed loads aren't cached.
 
-- the value of a JSX attribute listed in `unoAttributes`;
-- an argument of a call to a function listed in `unoFunctions`;
-- the quasi of a tagged template whose tag is in `unoFunctions`;
-- the value of a variable whose name matches a regex from `unoVariables` (case-insensitive, like the ESLint rule): a class value, an object whose values are such values (keys are names), or a function returning one (top-level `return`s only). Calls of other functions are not class positions here, unlike in the ESLint rule: their arguments may be anything (`const clsx = require('clsx')`).
+**Icons.** Like the ESLint plugin, the generator is created with `process.env.ESLINT` set, so `@unocss/preset-icons` doesn't load `@iconify-json/*` collections: it is slow and sorting doesn't need the SVGs. Such icons are then unknown classes, as under ESLint. The variable is set only while the generator is created, not for the whole process (editors run other extensions in it). The preset reads it lazily, on the first icon, so `icons.ts` triggers that early with a name it rejects before loading anything.
 
-Inside a class context, strings and template literals are collected from **class positions** only, recursively: the branches of a conditional (not its test), both sides of a logical expression, array elements, spread arguments, object property **values**, and template expressions that stand apart from the text around them (`` `p-4 ${on ? 'a b' : ''}` ``). TypeScript wrappers (`as`, `satisfies`, `!`) are transparent, and `` String.raw`…` `` is handled like a plain template literal (as in the ESLint rule). Any other expression (`a === 'x'`, `other('x')`, `obj['x']`, `'x'.split(' ')`) is not a class position: its strings are left alone, but it is still searched for nested class contexts, so `merge(clsx('…'))` is sorted.
+## Finding classes (`transform/collect.ts`)
 
-**Object keys** are classes inside clsx-like functions (`clsx({ 'p-4 flex': on })`), but names in `tv` and `cva` (`tv({ base: '…' })`) and in JSX attributes, where they are never touched. The variant functions are a fixed list (`tv`, `cva`) in `collect.ts`. Only static keys are sorted (`'a b'`, `['a b']`, `` [`a b`] ``), and only in objects without spreads. The keys of one object are sorted as a group: if sorting would make two keys equal (`{ 'p-4 flex': a, 'flex p-4': b }`), the later one would override the earlier one, so the whole object's keys are left alone.
+**Class contexts:**
 
-This is a superset of the ESLint `order` rule, which looks only one level deep (call arguments, and literals directly in JSX attributes).
+- the value of a JSX attribute in `unoAttributes`;
+- an argument of a call to a function in `unoFunctions`, or a tagged template with such a tag;
+- the value of a variable whose name matches `unoVariables` (case-insensitive): a class value, an object of them, or a function returning one (top-level `return`s).
 
-**Comparison with the ESLint rule.** `test/eslint.test.ts` runs every fixture through `eslint --fix` with `@unocss/order` and then Prettier, and expects our output. The fixtures listed there differ on purpose: either we sort more (nested positions), or the ESLint fix breaks code (escapes, classes glued to `${…}`, `w-(--x)`, two equal object keys) or adds a space between `${…}` expressions. `CORPUS=<dir> pnpm vitest run test/eslint-corpus.test.ts` does the same comparison on a directory of real files. Tailwind projects work for this, as `presetWind3` understands most of their classes. Prettier also formats code embedded in `` html`…` `` templates, and our parsers run there too, while ESLint doesn't look inside.
+**Class positions.** Inside a context, strings are collected recursively from: conditional branches (not the test), both sides of `&&` / `||` / `??`, array elements, spreads, object values, and `${…}` expressions with whitespace or the template's edge on both sides. `as`, `satisfies` and `!` are transparent; `` String.raw`…` `` is a template. Anything else (`a === 'x'`, `other('x')`, `'x'.split(' ')`) is not a class position, but is still searched for nested contexts, so `merge(clsx('…'))` is sorted.
 
-Strings are collected first and sorted after the walk, because sorting is async and mutating while walking is error-prone.
+**Object keys** are classes in `clsx`-like functions (`clsx({ 'p-4 flex': on })`), but names in `tv` / `cva` (a fixed list in `collect.ts`) and in JSX attributes. Only static keys, only in objects without spreads. An object's keys are sorted together, and left alone if sorting would make two of them equal: `{ 'p-4 flex': a, 'flex p-4': b }` would lose `a`.
 
-**Rewriting.** Prettier printers print string literals from their **raw** source text (to keep quotes and escapes), so we update `value`, `raw` and Babel's `extra.raw` / `extra.rawValue` together, keeping the original quote character.
+**Template literals.** A chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chunk `p-2 bg-` ends with part of a class. Glued fragments stay in place, whole classes between them are sorted, and the chunk keeps its edge whitespace. In `` `bg-${on ? 'red-500' : 'blue-500'}` `` the strings are parts of one class, so they aren't sorted.
 
-**Quotes and escapes.** Classes may contain quotes (`content-['x']`) and a string may spell them with escapes (`"content-[\"x\"]"`, `&quot;` in JSX). The source text between the quotes is split into units, each a character or an escape with its value (`escapes.ts`); decoding must give exactly the parser's `value`, otherwise the string is skipped. The value is sorted, and every whitespace-separated piece of the result that is in the source gets its original spelling back, escapes included. A new piece, which only a variant group collapsed differently can produce, is written as is unless it contains a character that would need escaping (both quotes and `\` in strings, `` ` `` / `\` / `${` in templates, quotes and `&` in JSX); then the string is skipped. Both quotes count for strings because Prettier may switch the quote character, and the next format must take the same decision (idempotency).
+Strings are collected first and sorted after the walk: sorting is async, and changing the AST while walking it is error-prone.
 
-Skipped on purpose: escaped whitespace other than HTML whitespace (`\v`, `\u00A0`; see below), line continuations, legacy octal escapes, unknown JSX entities (`&nbsp;`; a bare `&` as in `[&>svg]:size-4` is a plain character), backslashes in `` String.raw`…` `` (its value is the raw text). Prettier's parsers keep named JSX entities in `value` (`&quot;`) but decode numeric ones; the value check accepts that, and the sort uses fully decoded text, as Prettier prints `&quot;` as `"`.
+## Writing strings back safely (`escapes.ts`, `rewrite.ts`)
 
-**Whitespace and multiline strings.** Whitespace between classes, line breaks and escaped whitespace (`\n`, `\t`) included, is collapsed to single spaces, so a class list split over several lines ends up on one line. The ESLint rule does the same, and keeping the line breaks would need a layout decision (which class goes on which line) with no right answer. At the edges: in strings, whitespace with a line break is dropped (`"\n  p-4 flex\n"` → `"flex p-4"`, as the ESLint rule trims) and other whitespace stays as one space; in template chunks it always stays as one space, because it separates classes from expressions. Only HTML whitespace (space, `\t`, `\n`, `\f`, `\r`) separates classes in the browser, while UnoCSS splits at any whitespace: a string with other whitespace (`\u00A0`, `\v`, escaped or not) is left alone.
+Prettier prints string literals from their **raw** text, to keep quotes and escapes, so `value`, `raw` and Babel's `extra` are updated together, with the original quote.
 
-**Changed classes.** Sorting must only move classes. A variant group is expanded for sorting and only known classes are grouped back, so a class that merely looks like a group changes: `w-(--x)` would come back as `w---x`, and `hover:(foo p-4)` (with an unknown `foo`) as `hover:foo hover:p-4`. Every item of the result must be in the input or be a regrouped variant group; otherwise the string is left alone. The ESLint rule has no such check.
+**Escapes and entities.** A class may contain quotes (`content-['x']`), spelled with escapes (`"content-[\"x\"]"`) or, in JSX and HTML, entities (`&quot;`). The source between the quotes is split into units: a character, or an escape with its value. Decoding must give exactly the parser's `value`, otherwise the string is skipped. After sorting, every class gets its original spelling back. A class that isn't in the source (only a regrouped variant group can make one) is written as is, unless it needs escaping; then the string is skipped. Both quote characters count, since Prettier may switch quotes and the next run must decide the same way.
 
-**Duplicates.** Duplicate classes are kept and sorted next to each other (`p-4 flex p-4` → `flex p-4 p-4`), each with its own spelling. Removing them would not match the ESLint rule, would change string values that code may rely on (comparisons, object keys, where it could also make two keys equal), and could only be done within one string: duplicates across template chunks, `clsx` arguments or conditional branches would stay anyway. Linting duplicates is a job for a lint rule, not for the formatter.
+Skipped on purpose: line continuations, legacy octal escapes, unknown entities (`&nbsp;`; a bare `&` as in `[&>svg]:size-4` is fine), backslashes in `String.raw`.
 
-**Template literals.** An expression is a class position only when whitespace or the template's edge is on both sides of it. In `` `bg-${on ? 'red-500 x' : 'blue-500'}` `` the strings are fragments of the class `bg-…`, and sorting them would change the class, so they are left alone (nested `clsx(…)` calls are still sorted).
+**Whitespace.** Whitespace between classes, line breaks included, becomes one space, so a multiline class list ends up on one line, as with the ESLint rule (keeping line breaks would need a layout decision with no right answer). At the edges, a string drops whitespace with a line break and keeps other whitespace as one space; a template chunk always keeps one space. Only HTML whitespace separates classes in the browser, while UnoCSS splits at any: a string with other whitespace (` `, `\v`) is left alone.
 
-A quasi chunk may be glued to an expression: in `` `p-2 bg-${c}-500` `` the chunk `p-2 bg-` ends with a partial class. Glued fragments at the edges of a chunk are kept in place; only whole classes in between are sorted. Leading/trailing whitespace of each chunk is preserved, because it separates classes from expressions.
+**Changed classes.** Sorting must only move classes. Expanding and collapsing variant groups can change a class that merely looks like a group: `w-(--x)` would come back as `w---x`, `hover:(foo p-4)` with an unknown `foo` as `hover:foo hover:p-4`. If the result has a class that isn't in the input and isn't a regrouped group, the string is left alone.
 
-**Safety rule.** When unsure, don't touch. A wrong sort is worse than no sort: formatting must never change behaviour.
+**Duplicates** are kept and sorted next to each other (`p-4 flex p-4` → `flex p-4 p-4`), as with the ESLint rule. Removing them would change string values code may rely on (comparisons, object keys), and couldn't catch duplicates across `clsx` arguments or branches anyway. That's a job for a linter.
 
-## HTML and Vue (`transform/html.ts`, `transform/vue.ts`)
+## Languages
 
-The `html` and `vue` parsers (Prettier's HTML parser, in Vue mode for `vue`) are wrapped like the JS ones. `<script>` blocks need nothing extra: Prettier formats them with the `babel` / `typescript` parsers, which are ours. The other HTML-based parsers (`angular`, `lwc`, `mjml`) are not wrapped yet.
+### HTML and Vue (`html.ts`, `vue.ts`)
 
-- **`class="…"`** (any name in `unoAttributes`; the parser lowercases HTML attribute names, so `CLASS` too): Prettier's AST keeps the value as written, entities included (`&amp;`), and prints it trimmed with whitespace collapsed. The value is decoded and sorted like a JSX string (same entities, same rules for new pieces), and `value` is replaced with the sorted source text. Values with `{{` are left alone, as Prettier does, and so are values with other entities (`&nbsp;`).
+Prettier's HTML parser (in Vue mode for `.vue`) is wrapped like the JS ones. `<script>` needs nothing extra: Prettier formats it with `babel` / `typescript`, which are ours. `angular`, `lwc` and `mjml` are not wrapped.
 
-Vue templates also have bound classes:
+- **`class="…"`** (names from `unoAttributes`): the AST keeps the value as written, entities included, so it is decoded and sorted like a JSX string. Values with `{{` are left alone, as Prettier does.
+- **`:class` / `v-bind:class`**: a JavaScript expression, which Prettier formats with `__vue_expression` (`__vue_ts_expression` for a TypeScript `<script>`). That parser can't be wrapped: it parses every binding and doesn't know which attribute it is in. So the `vue` parser parses `:class` values itself, collects class strings with the whole expression as a class value (object keys are classes, as in Vue), and writes the sorted strings back into the value as text edits. A value Babel can't parse is left alone, and so is one with an entity: Vue decodes `&amp;` in attributes, Prettier doesn't, so it would be sorted by the wrong text.
+- **Attributify** (`<div p-4 flex>`), only with `@unocss/preset-attributify` in the config, like `order-attributify`: the valueless attributes of each element in the SFC's `<template>` (not `<script setup>` or `<style scoped>`), except directives (`v-else`, `#default`, `.prop`) and `style`, `class`, `className`, `value`. They are sorted as one class list by their names as written (`hover:p-4` included) and put together where the last of them was; other attributes keep their places. Attributes with a value (`text="sm white"`) are left alone, and so is an element after `<!-- prettier-ignore-attribute -->`, whose attributes Prettier prints as written.
 
-- **`:class="…"` / `v-bind:class="…"`**: the value is a JavaScript expression that Prettier formats with its `__vue_expression` parser (`__vue_ts_expression` when the component's `<script>` is TypeScript, the same check as Prettier's). That parser can't be wrapped: it parses every binding (`:title`, `v-if`) and doesn't know which attribute it is in. So the `vue` parser parses `:class` values itself with the same parser, collects class strings with the whole expression as a class value (`collectClassNodes(…, classValue)`: strings, branches, arrays, object keys, as Vue's object syntax uses keys as classes), sorts them in that AST and writes their new source text back into the attribute value at their positions (`locStart` / `locEnd`). Prettier then formats the changed value as usual. A value Babel can't parse is left alone (Prettier reports it), and so is a value with an HTML entity: Vue decodes `&amp;` in attributes, Prettier doesn't, so the strings would be sorted by the wrong text.
+### Svelte (`svelte.ts`)
 
-The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), and sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
+The Svelte printer prints expressions from the **source text**, so changing the AST has no effect. Instead the changes are collected as text edits (`classNodeEdits`, shared with Vue's `:class`), applied, and the text is parsed again and set as `options.originalText`, as the plugin's own `preprocess` does. Side effect: the cursor position in editors is computed from the text before sorting, so it may move a little within a sorted line. Only the Svelte 5 AST (plugin v4) is supported; with v3 the markup is left alone.
 
-Attributify utilities (`<div p-4 flex>`) are sorted only when the config has `presetAttributify` (`@unocss/preset-attributify` among the resolved presets), like the ESLint `order-attributify` rule, which sorts them in Vue templates only:
+- **`class="…"`**: text parts and `{…}` parts. Text is decoded like JSX (entities); with expressions around, each text part is handled like a template chunk (`bg-{c}-500` stays). A standalone `{…}` is a class value whose object keys are _not_ classes: it becomes a string.
+- **`class={…}`**: a class value with object keys as classes (Svelte 5 passes it through `clsx`).
+- **`class:name`** directives are never sorted.
+- Any other markup expression is searched for class contexts (`clsx(…)`, `{@const cls = …}`).
 
-- **Valueless attributes** of an element, in the SFC's `<template>` (not `<script setup>` or `<style scoped>`), except directives (`v-else`, `#default`, `.prop`) and `style`, `class`, `className`, `value`, as in the rule. Attributes with a value (`text="sm white"`) are left alone, also as in the rule.
-- They are sorted as one class list (`sortClasses`) and put together where the last of them was; other attributes keep their places. The attributes are moved in the AST (`element.attrs`), Prettier prints them in that order.
-- Names are sorted as written (`fullName`, with its namespace: `hover:p-4`). The rule lowercases them (`isOpen` → `isopen`), which changes the code. Sorting must only move names, as for classes.
-- An element after `<!-- prettier-ignore-attribute -->` is left alone, as Prettier prints its attributes as written.
+### Astro (`astro.ts`)
+
+`prettier-plugin-astro` turns the markup into a JSX AST, printed from the AST, so the markup is sorted in place like JSX. `class:list={…}` is a class value with object keys as classes, as Astro passes it through `clsx`. The frontmatter and `<script>` are formatted with `babel-ts`, which is ours.
 
 ## Parsers of other plugins (`parsers.ts`)
 
-Prettier lets one plugin own a parser name: it uses the parser of the last plugin that registers it. Other plugins register the same names: `prettier-plugin-svelte` / `prettier-plugin-astro` add `svelte` / `astro` (Prettier has none), and the import sorters (`prettier-plugin-organize-imports`, `@ianvs/…` and `@trivago/prettier-plugin-sort-imports`) replace `babel`, `typescript`, `vue`, … with Prettier's parsers plus a `preprocess` that reorders imports.
+Prettier uses the parser of the last plugin that registers a name. Other plugins register the same names as we do: `prettier-plugin-svelte` / `prettier-plugin-astro` add `svelte` / `astro`, and the import sorters (`prettier-plugin-organize-imports`, `@ianvs/…`, `@trivago/…`) replace `babel`, `typescript`, `vue`, … with Prettier's parsers plus a `preprocess` that reorders imports.
 
-So every parser of ours (`wrapParser`) builds on a **base parser** found at runtime (`baseParser`): the parser of the same name from the last plugin **before ours** in `options.plugins` (the plugin objects Prettier loaded for the file: its own plugins first, then the user's), falling back to Prettier's own parser. The base parser's `preprocess` and `parse` run, then classes are sorted, and the base plugin's printer (found by `astFormat`) prints. Other plugins stay optional: the user's own versions are used, and none is imported here.
+So each of our parsers (`wrapParser`) builds on a **base parser** found at runtime: the parser of the same name from the last plugin **before ours** in `options.plugins`, or Prettier's own. Its `preprocess` and `parse` run, then classes are sorted, and its plugin's printer (by `astFormat`) prints. No other plugin is imported: the user's own versions are used.
 
-Details:
-
-- Plugins after ours are never looked at, so two plugins that both build on the previous one can't call each other in a loop. With ours listed first, the other plugin's parser is used and ours does nothing for that parser name. The README asks for ours to be last.
-- Prettier's own plugins load parsers lazily (the entry is a function); `@ianvs/…` has getters that throw when an optional plugin is missing. Both are handled.
-- `preprocess` is async (Prettier awaits it, its type says otherwise), because finding a lazy base parser is.
-- Svelte and Astro have no Prettier parser: without the plugin, ours throws an error that names it.
-
-How the sorted classes get printed depends on the printer: Svelte's prints expressions from the source text, Astro's and Prettier's print the AST.
+- Plugins after ours are never looked at, so two plugins that both build on the previous one can't call each other in a loop. Listed before another plugin, ours does nothing for that parser name; the README asks for ours to be last.
+- Prettier's own plugins load parsers lazily, and `@ianvs/…` has getters that throw when an optional plugin is missing; both are handled. That's why `preprocess` is async (Prettier awaits it, although its type says otherwise).
+- Svelte and Astro have no Prettier parser: without their plugin, ours throws an error that names it.
 
 `test/compat.test.ts` checks for every import sorter that the result with ours last is theirs with classes sorted.
 
-## Svelte (`transform/svelte.ts`)
+## Comparison with the ESLint rules
 
-The Svelte printer prints expressions from the **source text** (`getText` by `start` / `end`), not from the AST, so changing AST nodes would have no effect. Instead `svelteClassEdits` collects the changes as text edits (`classNodeEdits`, the same helper as Vue's `:class`), the parser applies them, parses the changed text again and sets it as `options.originalText`, as the plugin's own `preprocess` does. The only side effect: Prettier computes the cursor position (editors) from the text before sorting, so the cursor may move a little within a sorted line. Only the modern AST (plugin v4, Svelte 5) is supported; with v3 the markup is left alone.
+`test/eslint.test.ts` runs every fixture through `eslint --fix` with `@unocss/order` and `@unocss/order-attributify`, then Prettier, and expects our output. Fixtures listed there differ on purpose, with the reason. `CORPUS=<dir> pnpm vitest run test/eslint-corpus.test.ts` does the same on a directory of real files; Tailwind projects work too, as `presetWind3` understands most of their classes.
 
-In the markup:
+We sort more:
 
-- **`class="…"`**: a list of `Text` and `ExpressionTag` parts. Text has HTML entities, decoded as in JSX (decoding must give Svelte's `data`); new pieces must not bring quotes, `&` or braces. A single text part is sorted like a string; with expressions around, each text part is a chunk, like in a template literal: glued fragments (`bg-{c}-500`) stay in place, and an expression with whitespace or the value's edge on both sides is a class value whose object keys are *not* classes (it is turned into a string).
-- **`class={…}`**: a class value with object keys as classes, as Svelte 5 passes it through `clsx`.
-- **`class:name={…}`**: directives, never sorted.
-- Any other expression in the markup is searched for class contexts (`clsx(…)`, `{@const cls = …}`).
+- nested class positions (the rule looks one level deep: call arguments and literals directly in attributes);
+- Vue `:class`, Svelte `class={[…]}`, Astro `class:list` and `<script>`;
+- HTML files, which the rule doesn't support (the comparison skips them);
+- code embedded in `` html`…` `` templates, which Prettier formats with our parsers and ESLint doesn't look into.
 
-The ESLint rule sorts the text parts of `class` and string branches of `{c ? '…' : '…'}` inside it, and `clsx(…)`; it decodes `&quot;` into a `class="…"` value, which breaks the markup.
+We leave alone what the rule breaks:
 
-## Astro (`transform/astro.ts`)
+- escapes and entities: the rule writes the decoded value back, which breaks `&quot;` and drops `&nbsp;`;
+- classes glued to `${…}`, and an extra space it adds between `${…}` expressions;
+- `w-(--x)`, which it expands into another class (`w---x`);
+- two object keys that sorting would make equal;
+- attributify names in another case: the rule writes them in lowercase (`isOpen` → `isopen`).
 
-`prettier-plugin-astro` (v1) turns the markup into a JSX AST (`ast.template`) printed by Prettier's estree printer, from the AST. So the markup is sorted in place exactly like JSX: `class="…"` (attribute strings keep entities as written, as in JSX), `class={…}`, `clsx(…)` anywhere. On top of that, `class:list={…}` is a class value whose object keys are classes too, as Astro passes it through `clsx` (the `listAttributes` collect option, not a user option). The frontmatter and `<script>` are formatted with `babel-ts`, which is ours; the frontmatter's AST in `ast.frontmatter` is not touched, as it is not printed.
-
-The ESLint rule (with `astro-eslint-parser`) sorts `class` and `clsx(…)` in the markup and the frontmatter, but not `class:list` or `<script>`, and decodes `&quot;` into a `class="…"` value, which breaks the markup.
+And we respect `<!-- prettier-ignore-attribute -->`, which ESLint doesn't know.
 
 ## Key decisions
 
-| Decision                                          | Why                                                                                                         |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Wrap built-in parsers instead of a custom printer | Formatting stays 100% Prettier; we only change string contents                                              |
-| Async parse                                       | Prettier 3 supports it; `loadConfig` and `parseToken` are async; no `synckit` worker needed (unlike ESLint) |
-| Same ordering as the ESLint rule                  | Predictable for UnoCSS users; one source of truth                                                           |
-| No config → no-op                                 | Guessing presets would produce wrong orders silently                                                        |
-| Object keys only in clsx-like functions           | In `tv`/`cva` keys are names (`base`, `size`), not classes                                                  |
-| Duplicate classes are kept                        | Same as the ESLint rule; see Duplicates above                                                                |
+| Decision                                          | Why                                                                                                      |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Wrap existing parsers instead of a custom printer | Formatting stays 100% Prettier; we only change class strings                                             |
+| Async parse                                       | Prettier 3 supports it, and `loadConfig` and `parseToken` are async; no `synckit` worker (unlike ESLint) |
+| Same order as the ESLint rules                    | Predictable for UnoCSS users; one source of truth                                                        |
+| No config → no-op                                 | Guessing presets would give wrong orders silently                                                        |
+| Object keys only in clsx-like functions           | In `tv` / `cva` keys are names (`base`, `size`), not classes                                             |
+| Duplicate classes are kept                        | Same as the ESLint rule; see Duplicates                                                                  |
 
 ## Known limitations
 
-- This plugin must be the last one in `plugins` (see Parsers of other plugins). Plugins that replace parsers other than the ones listed in the README may work the same way, but are not tested.
-- Only one class sorter: with `prettier-plugin-tailwindcss` the two would undo each other's work. Out of scope.
-- Attributify mode: only valueless attributes, only in Vue templates (see HTML and Vue).
+- This plugin must be the last in `plugins`. Plugins that replace other parsers than the tested ones may work the same way, but are not tested.
+- One class sorter only: with `prettier-plugin-tailwindcss` the two would undo each other's work.
+- Attributify: only valueless attributes, only in Vue templates.
 
 ## References
 
-- UnoCSS ESLint plugin: `packages-integrations/eslint-plugin` (rule `order`, `worker.ts`)
-- UnoCSS sort utility: `virtual-shared/integration/src/sort-rules.ts`
-- `prettier-plugin-tailwindcss` source: parser wrapping and plugin compatibility
-- Prettier plugin API: `https://prettier.io/docs/plugins`
+- UnoCSS ESLint plugin: `packages-integrations/eslint-plugin` (rules `order`, `order-attributify`; `worker.ts`)
+- UnoCSS sort utility: `virtual-shared/integration/src/sort-rules.ts`, to be exported from `@unocss/core` ([#5439](https://github.com/unocss/unocss/pull/5439))
+- `prettier-plugin-tailwindcss`: parser wrapping and plugin compatibility
+- Prettier plugin API: <https://prettier.io/docs/plugins>
