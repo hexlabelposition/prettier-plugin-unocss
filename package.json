@@ -34,11 +34,11 @@
   "scripts": {
     "build": "tsdown",
     "typecheck": "tsc && tsc -p playground",
-    "test": "vitest run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "play": "pnpm build && prettier --plugin=./dist/index.mjs playground/example.tsx",
-    "bench": "pnpm build && node bench/index.ts"
+    "bench": "pnpm build && node bench/index.ts",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"
