@@ -2,21 +2,26 @@
 // prints the cost of the first file (config load, generator creation) and of
 // every next file.
 //
-//   pnpm bench [files] [runs]
+//   pnpm bench [files] [runs] [presets]
+//
+// `presets` is a comma-separated list of directories in `bench/presets/`
+// (default: all of them). Each one holds a `uno.config.ts`, found by searching
+// up from the formatted file, as in a real project. Every preset formats the
+// same files, so the numbers are comparable.
 //
 // Each mode runs in a fresh Node process, so caches don't leak between runs.
-// The plugin is loaded from `dist/` (`pnpm bench` builds it first) and uses
-// `playground/uno.config.ts` (presetWind3), found by searching up from the
-// formatted file, as in a real project.
+// The plugin is loaded from `dist/` (`pnpm bench` builds it first).
 
 import type { Plugin } from 'prettier'
 import { execFileSync } from 'node:child_process'
+import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 import { format } from 'prettier'
 
-type Mode = 'prettier' | 'plugin'
+// `prettier` alone, or the plugin with the config from `bench/presets/<mode>/`
+type Mode = string
 
 interface Result {
   first: number
@@ -24,6 +29,7 @@ interface Result {
 }
 
 const root = join(import.meta.dirname, '..')
+const presetsDir = join(import.meta.dirname, 'presets')
 
 const UTILITIES = [
   'flex inline-flex grid block hidden relative absolute sticky top-0 inset-0',
@@ -38,8 +44,10 @@ const UTILITIES = [
   'border border-2 border-gray-200 border-transparent rounded rounded-lg rounded-full',
   'shadow shadow-lg ring-2 ring-blue-500 opacity-50 outline-none',
   'transition duration-200 ease-in-out cursor-pointer select-none overflow-hidden z-10',
-  // A shortcut from playground/uno.config.ts
+  // A shortcut from bench/presets/*/uno.config.ts
   'btn',
+  // An icon from @iconify-json/svg-spinners, known only with presetIcons
+  'i-svg-spinners-180-ring',
 ].join(' ').split(' ')
 const VARIANTS = 'hover: focus: md: lg: dark: disabled: sm:hover:'.split(' ')
 // Classes UnoCSS doesn't know
@@ -86,16 +94,19 @@ export function Item${i}({ active, tone }: { active: boolean, tone: string }) {
 }
 
 async function runMode(mode: Mode, files: number): Promise<Result> {
-  const plugins: Plugin[] = mode === 'plugin'
-    ? [await import(pathToFileURL(join(root, 'dist/index.mjs')).href)]
-    : []
+  const plugins: Plugin[] = mode === 'prettier'
+    ? []
+    : [await import(pathToFileURL(join(root, 'dist/index.mjs')).href)]
+  const dir = mode === 'prettier'
+    ? presetsDir
+    : join(presetsDir, mode)
   const sources = Array.from({ length: files }, (_, i) => generateFile(i))
 
   const times: number[] = []
   for (const [i, source] of sources.entries()) {
     const start = performance.now()
     await format(source, {
-      filepath: join(root, `playground/bench-${i}.tsx`),
+      filepath: join(dir, `bench-${i}.tsx`),
       plugins,
     })
     times.push(performance.now() - start)
@@ -137,6 +148,10 @@ async function main(): Promise<void> {
 
   const files = Number(process.argv[2] ?? 200)
   const runs = Number(process.argv[3] ?? 5)
+  const presets = process.argv[4]?.split(',')
+    ?? readdirSync(presetsDir, { withFileTypes: true })
+      .filter(entry => entry.isDirectory())
+      .map(entry => entry.name)
   const summary = (mode: Mode): Result => {
     const results = Array.from({ length: runs }, () => runChild(mode, files))
     return {
@@ -145,23 +160,27 @@ async function main(): Promise<void> {
     }
   }
   const prettier = summary('prettier')
-  const plugin = summary('plugin')
-
-  console.log(`${files} files, median of ${runs} runs, Node ${process.version}\n`)
-  console.table({
-    'Prettier': {
+  // Overhead is measured against Prettier itself, so it doesn't apply there
+  const table: Record<string, Record<string, string>> = {
+    Prettier: {
       'first file': ms(prettier.first),
       'next files, each': ms(prettier.perFile),
+      'overhead, first': '—',
+      'overhead, each': '—',
     },
-    'Prettier + plugin': {
+  }
+  for (const preset of presets) {
+    const plugin = summary(preset)
+    table[`+ plugin (${preset})`] = {
       'first file': ms(plugin.first),
       'next files, each': ms(plugin.perFile),
-    },
-    'Plugin overhead': {
-      'first file': ms(plugin.first - prettier.first),
-      'next files, each': ms(plugin.perFile - prettier.perFile),
-    },
-  })
+      'overhead, first': ms(plugin.first - prettier.first),
+      'overhead, each': ms(plugin.perFile - prettier.perFile),
+    }
+  }
+
+  console.log(`${files} files, median of ${runs} runs, Node ${process.version}\n`)
+  console.table(table)
 }
 
 main()
