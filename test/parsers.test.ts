@@ -133,6 +133,47 @@ describe.each([
   })
 })
 
+describe('attributify in Vue', () => {
+  const attributify = (name: string): string => join(configs, 'attributify', name)
+  const vue = (markup: string): string => `<template>\n  ${markup}\n</template>\n`
+
+  it('sorts valueless attributes with presetAttributify', async () => {
+    expect(await fmt(vue('<div p-4 id="x" flex />'), {
+      filepath: attributify('x.vue'),
+    }))
+      .toBe(vue('<div id="x" flex p-4 />'))
+  })
+
+  it('needs presetAttributify', async () => {
+    expect(await fmt(vue('<div p-4 flex />'), {
+      filepath: at('x.vue'),
+    }))
+      .toBe(vue('<div p-4 flex />'))
+  })
+
+  it('only in Vue templates', async () => {
+    expect(await fmt('<div p-4 flex></div>\n', {
+      filepath: attributify('x.html'),
+    }))
+      .toBe('<div p-4 flex></div>\n')
+  })
+
+  it('keeps names as written', async () => {
+    // The ESLint rule writes them in lowercase: `isopen`
+    expect(await fmt(vue('<MyComponent p-4 isOpen flex />'), {
+      filepath: attributify('x.vue'),
+    }))
+      .toBe(vue('<MyComponent isOpen flex p-4 />'))
+  })
+
+  it('leaves elements after prettier-ignore-attribute alone', async () => {
+    const code = vue('<!-- prettier-ignore-attribute -->\n  <div p-4 flex />')
+    expect(await fmt(code, {
+      filepath: attributify('x.vue'),
+    })).toBe(code)
+  })
+})
+
 describe('options', () => {
   it('unoAttributes', async () => {
     expect(await fmt('<a tw="p-4 flex" className="p-4 flex" />;', {

@@ -41,7 +41,7 @@ src/
     template.ts   Template literal handling
     escapes.ts    Escapes and JSX entities: source text ↔ value
     html.ts       HTML: static `class` in Prettier's HTML AST (shared with Vue)
-    vue.ts        Vue templates: `class` and `:class` in Prettier's HTML AST
+    vue.ts        Vue templates: `class`, `:class` and attributify in Prettier's HTML AST
     svelte.ts     Svelte markup (prettier-plugin-svelte's AST), as text edits
     astro.ts      Astro markup (prettier-plugin-astro's JSX AST)
   options.ts      Option definitions and their types
@@ -124,6 +124,13 @@ Vue templates also have bound classes:
 
 The ESLint rule doesn't support HTML files (`test/eslint.test.ts` skips them), and sorts only `class="…"` in Vue templates (and `<script>`), so `:class` is a superset again. It writes the decoded value back into the source, which breaks `&quot;` and drops `&nbsp;`; we keep entities, and skip values with entities we don't know.
 
+Attributify utilities (`<div p-4 flex>`) are sorted only when the config has `presetAttributify` (`@unocss/preset-attributify` among the resolved presets), like the ESLint `order-attributify` rule, which sorts them in Vue templates only:
+
+- **Valueless attributes** of an element, in the SFC's `<template>` (not `<script setup>` or `<style scoped>`), except directives (`v-else`, `#default`, `.prop`) and `style`, `class`, `className`, `value`, as in the rule. Attributes with a value (`text="sm white"`) are left alone, also as in the rule.
+- They are sorted as one class list (`sortClasses`) and put together where the last of them was; other attributes keep their places. The attributes are moved in the AST (`element.attrs`), Prettier prints them in that order.
+- Names are sorted as written (`fullName`, with its namespace: `hover:p-4`). The rule lowercases them (`isOpen` → `isopen`), which changes the code. Sorting must only move names, as for classes.
+- An element after `<!-- prettier-ignore-attribute -->` is left alone, as Prettier prints its attributes as written.
+
 ## Parsers of other plugins (`parsers.ts`)
 
 Prettier lets one plugin own a parser name: it uses the parser of the last plugin that registers it. Other plugins register the same names: `prettier-plugin-svelte` / `prettier-plugin-astro` add `svelte` / `astro` (Prettier has none), and the import sorters (`prettier-plugin-organize-imports`, `@ianvs/…` and `@trivago/prettier-plugin-sort-imports`) replace `babel`, `typescript`, `vue`, … with Prettier's parsers plus a `preprocess` that reorders imports.
@@ -175,7 +182,7 @@ The ESLint rule (with `astro-eslint-parser`) sorts `class` and `clsx(…)` in th
 
 - This plugin must be the last one in `plugins` (see Parsers of other plugins). Plugins that replace parsers other than the ones listed in the README may work the same way, but are not tested.
 - Only one class sorter: with `prettier-plugin-tailwindcss` the two would undo each other's work. Out of scope.
-- Attributify mode is not supported.
+- Attributify mode: only valueless attributes, only in Vue templates (see HTML and Vue).
 
 ## References
 

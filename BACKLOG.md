@@ -90,7 +90,7 @@ Prettier lets only one plugin own a parser name. Study how `prettier-plugin-tail
 
 ## U6: Attributify (optional)
 
-- [ ] Sort attributify attributes like the ESLint rule `order-attributify` (`<div p-4 flex>`), only when `presetAttributify` is in the config
+- [x] Sort attributify attributes like the ESLint rule `order-attributify` (`<div p-4 flex>`), only when `presetAttributify` is in the config
 
 ## U7: First release
 

@@ -67,6 +67,7 @@ export async function formatWithEslint(code: string, options: CompareOptions): P
             ...options.unoVariables && { unoVariables: options.unoVariables },
           },
         ],
+        'unocss/order-attributify': 'error',
       },
     },
   ], { filename: options.filepath })

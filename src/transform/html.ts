@@ -7,6 +7,8 @@ import { JSX_UNSAFE } from './index'
 export interface HtmlNode {
   kind: string
   name?: string
+  /** An attribute's name as written, with its namespace (`hover:p-4`); `name` drops it. */
+  fullName?: string
   value?: string | null
   attrs?: HtmlNode[]
   children?: HtmlNode[]
