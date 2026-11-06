@@ -128,7 +128,7 @@ pnpm test        # Vitest
 pnpm play        # format playground/example.tsx with the local build
 pnpm bench       # benchmark, see Performance
 pnpm lint
-pnpm typescheck
+pnpm typecheck
 ```
 
 Tests check that every fixture gives the same result as `eslint --fix` with the UnoCSS rules, apart from documented differences. To compare on a real project: `CORPUS=path/to/project pnpm vitest run test/eslint-corpus.test.ts`.
