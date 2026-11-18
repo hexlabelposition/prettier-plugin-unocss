@@ -1,0 +1,18 @@
+minimumReleaseAgeExcludePrune: true
+
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  # Published without the provenance of earlier versions; pulled in by
+  # @types/node 22, which follows the oldest supported Node.
+  - undici-types@6.21.0
+
+shellEmulator: true
+
+# Security fixes for transitive dev dependencies whose parents haven't
+# updated yet. Remove an entry once `pnpm why <name>` shows only fixed versions
+# without it.
+overrides:
+  # GHSA-238p-pmpm-9mq7, via @antfu/eslint-config > @eslint/markdown
+  katex@>=0.11.0 <0.18.2: ^0.18.2
+  # GHSA-g3hv-75wg-m249, via @trivago/prettier-plugin-sort-imports (^9)
+  minimatch@>=7.0.0 <11.0.1: ^11.0.5
