@@ -32,7 +32,7 @@ These decide what happens next, and the answers come from the UnoCSS team. Check
 ### Release (only as a community package)
 
 - [x] README: final pass on usage, options and limitations
-- [ ] `CHANGELOG.md`, release tooling (`bumpp` + `changelogithub`, like UnoCSS)
+- [x] `CHANGELOG.md`, release tooling (`bumpp` + `changelogithub`, like UnoCSS)
 - [ ] npm publish with provenance from CI (the project author triggers it); remove the "work in progress" note from the README
 - [ ] Post the release in discussion #5411
 

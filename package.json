@@ -5,7 +5,14 @@
   "private": true,
   "packageManager": "pnpm@11.28.4",
   "description": "Prettier plugin that sorts UnoCSS utilities using your own uno.config.",
+  "author": "Vladyslav Kudriashov",
   "license": "MIT",
+  "homepage": "https://github.com/hexlabelposition/prettier-plugin-unocss#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hexlabelposition/prettier-plugin-unocss.git"
+  },
+  "bugs": "https://github.com/hexlabelposition/prettier-plugin-unocss/issues",
   "keywords": [
     "class-sorting",
     "css",
@@ -38,7 +45,8 @@
     "lint:fix": "eslint . --fix",
     "play": "pnpm build && prettier --plugin=./dist/index.mjs playground/example.tsx",
     "bench": "pnpm build && node bench/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "release": "bumpp --sign"
   },
   "peerDependencies": {
     "prettier": "^3.0.0"
@@ -58,6 +66,7 @@
     "@typescript-eslint/parser": "^8.72.1",
     "@unocss/eslint-plugin": "^66.13.0",
     "astro-eslint-parser": "^3.2.0",
+    "bumpp": "^12.3.0",
     "clsx": "^2.1.1",
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",
