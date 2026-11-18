@@ -1,7 +1,7 @@
 {
   "name": "prettier-plugin-unocss",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packageManager": "pnpm@11.28.4",
   "description": "Unofficial Prettier plugin that sorts UnoCSS utilities using your own uno.config, in the same order as the official ESLint rule.",
   "author": "Vladyslav Kudriashov",
