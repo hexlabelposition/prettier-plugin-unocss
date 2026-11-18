@@ -2,6 +2,10 @@
 
 Full release notes, generated from the commit messages, are on [GitHub Releases](https://github.com/hexlabelposition/prettier-plugin-unocss/releases).
 
+## 1.0.1 (2026-11-18)
+
+- Docs: the README and the package description say that the plugin is unofficial, and that the order comes from UnoCSS itself (`sortRules` from `@unocss/core`).
+
 ## 1.0.0 (2026-11-18)
 
 First release.
