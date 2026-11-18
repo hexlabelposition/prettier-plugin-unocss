@@ -9,6 +9,9 @@ A [Prettier](https://prettier.io) plugin that sorts [UnoCSS](https://unocss.dev)
 
 Think [`prettier-plugin-tailwindcss`](https://github.com/tailwindlabs/prettier-plugin-tailwindcss), but for UnoCSS.
 
+> [!NOTE]
+> **Unofficial, with the official order.** This is a community plugin, not made or endorsed by the UnoCSS team. The order itself comes from UnoCSS: classes are sorted by `sortRules` from `@unocss/core`, the same function the UnoCSS ESLint rule uses.
+
 | Section                                                                 | What's inside                                                |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------ |
 | [Why](#why)                                                             | What the plugin is for                                       |

@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "packageManager": "pnpm@11.28.4",
-  "description": "Prettier plugin that sorts UnoCSS utilities using your own uno.config.",
+  "description": "Unofficial Prettier plugin that sorts UnoCSS utilities using your own uno.config, in the same order as the official ESLint rule.",
   "author": "Vladyslav Kudriashov",
   "license": "MIT",
   "homepage": "https://github.com/hexlabelposition/prettier-plugin-unocss#readme",
