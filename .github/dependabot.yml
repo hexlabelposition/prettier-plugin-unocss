@@ -15,6 +15,11 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      # Types match the oldest supported Node (engines in package.json), so
+      # TypeScript catches APIs that the oldest version doesn't have.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       # UnoCSS packages are released together and must stay in step.
       unocss:
