@@ -24,10 +24,10 @@ These decide what happens next, and the answers come from the UnoCSS team. Check
 - [ ] **Monorepo or community package?** Asked in [discussion #5411](https://github.com/unocss/unocss/discussions/5411), no answer yet.
   - Monorepo (`@unocss/prettier-plugin`): the code moves to the UnoCSS repository and **Release** below is dropped; the project author discusses the next steps with the UnoCSS team.
   - Community package: do **Release** below from this repository.
-- [ ] **`sortRules` exported from `@unocss/core`**: [PR #5439](https://github.com/unocss/unocss/pull/5439), open. Once it is released:
-  - [ ] Replace the copy in `src/sort.ts` with the import; keep `sortPreservingEdges`, it is ours
-  - [ ] Raise the minimum `@unocss/core` version to that release
-  - [ ] Drop the attribution comment in `src/sort.ts` and update Credits in the README and the ordering section in `ARCHITECTURE.md`
+- [x] **`sortRules` exported from `@unocss/core`**: [PR #5439](https://github.com/unocss/unocss/pull/5439), released in 66.13.0:
+  - [x] Replace the copy in `src/sort.ts` with the import; keep `sortPreservingEdges`, it is ours
+  - [x] Raise the minimum `@unocss/core` version to that release
+  - [x] Drop the attribution comment in `src/sort.ts` and update Credits in the README and the ordering section in `ARCHITECTURE.md`
 
 ### Release (only as a community package)
 

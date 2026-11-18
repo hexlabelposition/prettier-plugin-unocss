@@ -1,7 +1,7 @@
-import { createGenerator } from '@unocss/core'
+import { createGenerator, sortRules } from '@unocss/core'
 import { presetWind3 } from 'unocss'
 import { describe, expect, it } from 'vitest'
-import { sortClasses, sortPreservingEdges } from '../src/sort'
+import { sortPreservingEdges } from '../src/sort'
 
 const uno = await createGenerator({
   presets: [
@@ -10,9 +10,10 @@ const uno = await createGenerator({
   shortcuts: { btn: 'px-4 py-2 rounded' },
 })
 
-const sort = (classes: string): Promise<string> => sortClasses(classes, uno)
+const sort = (classes: string): Promise<string> => sortRules(classes, uno)
 
-describe('sortClasses', () => {
+// Pins the `sortRules` behaviour the plugin relies on
+describe('sortRules', () => {
   it('orders utilities by rule order', async () => {
     expect(await sort('p-4 flex mt-2')).toBe('mt-2 flex p-4')
   })
@@ -68,7 +69,7 @@ describe('sortClasses', () => {
         presetWind3(),
       ],
     })
-    await sortClasses('p-4', fresh)
+    await sortRules('p-4', fresh)
     expect(fresh.config.details).toBe(true)
   })
 })

@@ -2,7 +2,7 @@ import type { UnoGenerator } from '@unocss/core'
 import type { CollectOptions } from './collect'
 import type { HtmlNode } from './html'
 import type { Locator } from './index'
-import { sortClasses } from '../sort'
+import { sortRules } from '@unocss/core'
 import { collectClassNodes } from './collect'
 import { sortStaticAttributes, walkElements } from './html'
 import { applyEdits, classNodeEdits } from './index'
@@ -124,7 +124,7 @@ async function sortAttributifyAttributes(element: HtmlNode, uno: UnoGenerator): 
     return
 
   const names = valueless.map(attr => attr.fullName!)
-  const sorted = (await sortClasses(names.join(' '), uno)).split(' ')
+  const sorted = (await sortRules(names.join(' '), uno)).split(' ')
   // Sorting must only move names (see "Changed classes" in ARCHITECTURE.md)
   if (sorted.join(' ') === names.join(' ') || sorted.toSorted().join(' ') !== names.toSorted().join(' '))
     return

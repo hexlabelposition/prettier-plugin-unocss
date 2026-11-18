@@ -137,7 +137,7 @@ How it works: [`ARCHITECTURE.md`](./ARCHITECTURE.md). What's next: [`BACKLOG.md`
 
 ## Credits
 
-The ordering algorithm is adapted from the `sortRules` utility of [UnoCSS](https://github.com/unocss/unocss) ([MIT](https://github.com/unocss/unocss/blob/main/LICENSE)), used by its ESLint plugin. The parser wrapping follows `prettier-plugin-tailwindcss`.
+Classes are sorted by `sortRules` from [`@unocss/core`](https://github.com/unocss/unocss), the function behind the UnoCSS ESLint plugin. The parser wrapping follows `prettier-plugin-tailwindcss`.
 
 This is an independent community project, not affiliated with or endorsed by the UnoCSS team.
 

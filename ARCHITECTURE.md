@@ -7,7 +7,7 @@ How `prettier-plugin-unocss` works, and why it is built this way.
 | [Principles](#principles)                                                       | The rules every decision follows                                                                |
 | [Pipeline](#pipeline)                                                           | How a file goes through the plugin, per language                                                |
 | [Modules](#modules)                                                             | Source files and their dependencies                                                             |
-| [Ordering](#ordering-sortts)                                                    | The ordering algorithm, adapted from UnoCSS                                                     |
+| [Ordering](#ordering-sortts)                                                    | The ordering algorithm, `sortRules` from `@unocss/core`                                         |
 | [Config loading](#config-loading-generatorts-iconsts)                           | Finding, caching, reloading the config; icons                                                   |
 | [Finding classes](#finding-classes-transformcollectts)                          | Class contexts, positions, object keys, templates                                               |
 | [Writing strings back safely](#writing-strings-back-safely-escapests-rewritets) | Escapes, whitespace, changed classes, duplicates                                                |
@@ -83,7 +83,7 @@ Dependencies point one way: `index → parsers → (generator, transform) → so
 
 ## Ordering (`sort.ts`)
 
-A copy of `sortRules` from UnoCSS (`virtual-shared/integration/src/sort-rules.ts`, MIT), the function behind the ESLint `order` rule. It isn't published yet: [unocss/unocss#5439](https://github.com/unocss/unocss/pull/5439) exports it from `@unocss/core`, and then the copy goes away.
+Classes are sorted by `sortRules` from `@unocss/core` (since 66.13.0), the same function the ESLint `order` rule uses, so the order matches it by construction. What it does:
 
 1. Expand variant groups: `hover:(a b)` → `hover:a hover:b`.
 2. For each class, `uno.parseToken(cls)`:
@@ -92,7 +92,7 @@ A copy of `sortRules` from UnoCSS (`virtual-shared/integration/src/sort-rules.ts
 3. Sort by rank, ties alphabetically.
 4. Collapse variant groups back.
 
-`uno.config.details = true` is required, otherwise `parseToken` returns no variant handlers. `sortPreservingEdges` is ours: it keeps one space at the edges of template chunks, where it separates classes from `${…}`.
+`sortRules` sets `uno.config.details = true`, otherwise `parseToken` returns no variant handlers. `sortPreservingEdges` in `sort.ts` is ours: it keeps one space at the edges of template chunks, where it separates classes from `${…}`.
 
 ## Config loading (`generator.ts`, `icons.ts`)
 
@@ -212,6 +212,6 @@ And we respect `<!-- prettier-ignore-attribute -->`, which ESLint doesn't know.
 ## References
 
 - UnoCSS ESLint plugin: `packages-integrations/eslint-plugin` (rules `order`, `order-attributify`; `worker.ts`)
-- UnoCSS sort utility: `virtual-shared/integration/src/sort-rules.ts`, to be exported from `@unocss/core` ([#5439](https://github.com/unocss/unocss/pull/5439))
+- UnoCSS sort utility: `packages-engine/core/src/utils/sort-rules.ts` (exported from `@unocss/core` in [#5439](https://github.com/unocss/unocss/pull/5439))
 - `prettier-plugin-tailwindcss`: parser wrapping and plugin compatibility
 - Prettier plugin API: <https://prettier.io/docs/plugins>

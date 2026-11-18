@@ -44,8 +44,8 @@
     "prettier": "^3.0.0"
   },
   "dependencies": {
-    "@unocss/config": "^66.12.0",
-    "@unocss/core": "^66.12.0",
+    "@unocss/config": "^66.13.0",
+    "@unocss/core": "^66.13.0",
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
@@ -56,7 +56,7 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@typescript-eslint/parser": "^8.72.1",
-    "@unocss/eslint-plugin": "^66.12.0",
+    "@unocss/eslint-plugin": "^66.13.0",
     "astro-eslint-parser": "^3.2.0",
     "clsx": "^2.1.1",
     "eslint": "^10.14.0",
@@ -70,7 +70,7 @@
     "tailwind-variants": "^4.0.1",
     "tsdown": "^0.23.4",
     "typescript": "^6.0.3",
-    "unocss": "^66.12.0",
+    "unocss": "^66.13.0",
     "vitest": "^5.0.5",
     "vue-eslint-parser": "^10.4.1",
     "vue-tsc": "^3.3.14"
