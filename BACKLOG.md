@@ -33,7 +33,11 @@ These decide what happens next, and the answers come from the UnoCSS team. Check
 
 - [x] README: final pass on usage, options and limitations
 - [x] `CHANGELOG.md`, release tooling (`bumpp` + `changelogithub`, like UnoCSS)
-- [ ] npm publish with provenance from CI (the project author triggers it); remove the "work in progress" note from the README
+- [ ] npm publish with provenance from CI (the project author triggers it)
+  - [x] `.github/workflows/release.yml`: tag check, CI, build without publishing permissions, `npm stage publish` with OIDC, GitHub release; `private` removed from `package.json`
+  - [x] GitHub environment `npm` that allows only `v*` tags
+  - [ ] Trusted publisher on npmjs.com: repository `hexlabelposition/prettier-plugin-unocss`, workflow `release.yml`, environment `npm`
+  - [ ] Remove the "work in progress" note from the README, then `pnpm release` and approve the staged version
 - [ ] Post the release in discussion #5411
 
 ### Later, only if the UnoCSS team is interested

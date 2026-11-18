@@ -2,7 +2,6 @@
   "name": "prettier-plugin-unocss",
   "type": "module",
   "version": "0.0.0",
-  "private": true,
   "packageManager": "pnpm@11.28.4",
   "description": "Prettier plugin that sorts UnoCSS utilities using your own uno.config.",
   "author": "Vladyslav Kudriashov",

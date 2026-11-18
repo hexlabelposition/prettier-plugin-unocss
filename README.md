@@ -172,7 +172,7 @@ pnpm typecheck
 
 Tests check that every fixture gives the same result as `eslint --fix` with the UnoCSS rules, apart from documented differences. To compare on a real project: `CORPUS=path/to/project pnpm vitest run test/eslint-corpus.test.ts`.
 
-Releases: `pnpm release` asks for the new version, then commits, tags (both signed) and pushes it; the tag makes CI create the GitHub release with notes from the commit messages. Changes: [`CHANGELOG.md`](./CHANGELOG.md).
+Releases: `pnpm release` asks for the new version, then commits, tags (both signed) and pushes it; for the tag, CI runs the checks, stages the package on npm with provenance (trusted publishing, no token) and creates the GitHub release with notes from the commit messages. The staged version is installable once a maintainer approves it with 2FA on npmjs.com or with `npm stage approve`. Changes: [`CHANGELOG.md`](./CHANGELOG.md).
 
 How it works: [`ARCHITECTURE.md`](./ARCHITECTURE.md). What's next: [`BACKLOG.md`](./BACKLOG.md).
 
