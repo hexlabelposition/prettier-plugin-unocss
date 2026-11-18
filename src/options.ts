@@ -28,7 +28,8 @@ export interface PluginOptions {
   unoVariables?: string[]
 }
 
-// Typed options in `prettier.config.ts`:
+// Typed options in `prettier.config.ts`, once the plugin's types are loaded
+// (`import type { PluginOptions } from 'prettier-plugin-unocss'` does it):
 // `const config: Config = { plugins: ['prettier-plugin-unocss'], unoFunctions: [...] }`
 declare module 'prettier' {
   interface Options extends PluginOptions {}

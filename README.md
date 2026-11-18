@@ -19,6 +19,7 @@ Think [`prettier-plugin-tailwindcss`](https://github.com/tailwindlabs/prettier-p
 | [How classes are ordered](#how-classes-are-ordered)                     | The order, duplicates, line breaks                           |
 | [Using with other Prettier plugins](#using-with-other-prettier-plugins) | Plugin order, Svelte, Astro, import sorters                  |
 | [Options](#options)                                                     | `unoConfig`, `unoAttributes`, `unoFunctions`, `unoVariables` |
+| [Limitations](#limitations)                                             | What isn't sorted or needs care                              |
 | [Performance](#performance)                                             | Cost of the first and every next file                        |
 | [Development](#development)                                             | Scripts and tests                                            |
 | [Credits](#credits)                                                     | Where the code comes from                                    |
@@ -26,22 +27,35 @@ Think [`prettier-plugin-tailwindcss`](https://github.com/tailwindlabs/prettier-p
 
 ## Why
 
-UnoCSS already sorts classes with the ESLint rule [`@unocss/order`](https://unocss.dev/integrations/eslint). This plugin brings the same order to Prettier, for projects that format with Prettier and want classes sorted on save. Discussion: [unocss/unocss#5411](https://github.com/unocss/unocss/discussions/5411).
+UnoCSS already sorts classes with the ESLint rule [`@unocss/order`](https://unocss.dev/integrations/eslint). This plugin brings the same order to Prettier, for projects that format with Prettier and want classes sorted on save, without running ESLint for it.
 
 ## Installation
 
+Requires Node.js 22.18 or later and Prettier 3.
+
 ```bash
 pnpm add -D prettier prettier-plugin-unocss
+# or
+npm install -D prettier prettier-plugin-unocss
 ```
 
-```json
-// .prettierrc
-{
-  "plugins": ["prettier-plugin-unocss"]
+```js
+// prettier.config.js
+
+/**
+ * @see https://prettier.io/docs/configuration
+ * @type {import("prettier").Config}
+ */
+const config = {
+  plugins: ['prettier-plugin-unocss'],
 }
+
+export default config
 ```
 
-That's it. The plugin finds `uno.config.*` (or `unocss.config.*`) next to each file or in a parent directory, so monorepos with several configs work. A file without a config is left untouched.
+That's it. The plugin finds `uno.config.*` (or `unocss.config.*`) next to each file or in a parent directory, so monorepos with several configs work. A file without a config is left untouched. If the config fails to load, Prettier reports the error with the config path, instead of silently not sorting.
+
+In an editor, the config is loaded again when it changes, so there is no need to restart Prettier.
 
 ## What gets sorted
 
@@ -55,7 +69,7 @@ That's it. The plugin finds `uno.config.*` (or `unocss.config.*`) next to each f
 
 `<script>` blocks and the Astro frontmatter are sorted like any JS/TS file.
 
-Inside class functions and attributes, the plugin also follows conditionals (`on ? 'a b' : 'c'`), `&&` / `||` / `??`, arrays, object values, template literals and tagged templates (``tw`…` ``). Object **keys** are classes in `clsx`-like functions (`clsx({ 'p-4 flex': on })`), but never in `tv` / `cva`, where they are names.
+Inside class functions and attributes, the plugin also follows conditionals (`on ? 'a b' : 'c'`), `&&` / `||` / `??`, arrays, object values, template literals, and tagged templates whose tag is in `unoFunctions` (add `tw` there for ``tw`…` ``). Object **keys** are classes in `clsx`-like functions (`clsx({ 'p-4 flex': on })`), but never in `tv` / `cva`, where they are names.
 
 Attributify utilities are sorted only when `presetAttributify` is in your config.
 
@@ -65,6 +79,8 @@ Attributify utilities are sorted only when `presetAttributify` is in your config
 2. Then utilities, in the order of the rules that match them in your config.
 3. Utilities with variants (`hover:`, `md:`) come after the ones without; more variants, further back.
 4. Variant groups `hover:(a b)` are sorted inside and stay grouped.
+
+Icons from `presetIcons` count as unknown classes and go first, as with the ESLint rule: icon collections are not loaded for sorting.
 
 Like `eslint --fix` with the UnoCSS rule, the plugin keeps duplicate classes (`p-4 flex p-4` → `flex p-4 p-4`) and puts a class list split over several lines on one line.
 
@@ -101,10 +117,33 @@ Don't use it together with `prettier-plugin-tailwindcss`: both sort classes, by 
 
 | Option          | Default                                           | Description                                               |
 | --------------- | ------------------------------------------------- | --------------------------------------------------------- |
-| `unoConfig`     | found automatically                               | Path to the UnoCSS config file                            |
+| `unoConfig`     | found automatically                               | Path to the UnoCSS config file, relative to the cwd       |
 | `unoAttributes` | `["class", "className"]`                          | Attributes whose value is sorted                          |
-| `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions whose arguments are sorted                      |
+| `unoFunctions`  | `["clsx", "cn", "cx", "classnames", "tv", "cva"]` | Functions and template tags whose arguments are sorted    |
 | `unoVariables`  | `["^cls", "classNames?$"]`                        | Regular expressions (case-insensitive) for variable names |
+
+A list you set replaces the default, so repeat the defaults you want to keep:
+
+```ts
+// prettier.config.ts
+import type { Config } from 'prettier'
+import type { PluginOptions } from 'prettier-plugin-unocss'
+
+const config: Config & PluginOptions = {
+  plugins: ['prettier-plugin-unocss'],
+  unoFunctions: ['clsx', 'cn', 'tw'],
+}
+
+export default config
+```
+
+## Limitations
+
+- **Config imports.** Only the config file and its `configDeps` are watched for changes. If `uno.config.ts` imports your own files (a shared preset, a theme), list them in `configDeps`, or the editor keeps the old order until it restarts Prettier.
+- **Attributify** is sorted only in Vue templates, and only valueless attributes (`<div p-4 flex>`, not `text="sm white"`).
+- **CSS** is not touched: `@apply` and `--at-apply` lists are left as they are.
+- **Plugin order.** This plugin must be last in `plugins`, see above. Plugins that replace other parsers than the tested ones may work, but are not tested.
+- **Svelte:** in editors, the cursor may move a little within a line whose classes were sorted.
 
 ## Performance
 
