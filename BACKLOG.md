@@ -39,7 +39,7 @@ These decided what happened next, and the answers were to come from the UnoCSS t
   - [x] Trusted publisher on npmjs.com: repository `hexlabelposition/prettier-plugin-unocss`, workflow `release.yml`, environment `npm`
   - [x] Remove the "work in progress" note from the README
   - [x] `pnpm release` and approve the staged version
-- [ ] Post the release in discussion #5411
+- [x] Post the release in discussion #5411
 
 ### Later, only if the UnoCSS team is interested
 
