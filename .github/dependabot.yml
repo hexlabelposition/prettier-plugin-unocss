@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # A version must be out for a week before it is proposed, so broken or
+    # compromised releases are usually pulled before they reach this repo.
+    cooldown:
+      default-days: 7
+    # In-range updates only touch the lockfile, so CI tests the latest
+    # versions users get; package.json changes only when a range must grow.
+    versioning-strategy: increase-if-necessary
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # UnoCSS packages are released together and must stay in step.
+      unocss:
+        patterns:
+          - '@unocss/*'
+          - unocss
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
