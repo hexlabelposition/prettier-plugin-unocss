@@ -60,7 +60,7 @@ These decide what happens next, and the answers come from the UnoCSS team. Check
 - [x] pnpm project, `"type": "module"`, Node ≥ 22 (Node 20 is EOL; tsdown and Vitest need ≥ 22), `prettier` ^3 as peer dependency
 - [x] TypeScript strict config; build with `tsdown` (or `unbuild`, like UnoCSS) to ESM + `.d.ts`
 - [x] Vitest, `@antfu/eslint-config`, scripts: `build`, `test`, `lint`, `typecheck`, `play`
-- [x] `LICENSE` (MIT). Keep the attribution comment for the code adapted from UnoCSS in `src/sort.ts`
+- [x] `LICENSE` (MIT)
 - [x] GitHub Actions CI: lint, typecheck, test on Node 22, 24 and 26
 - [x] `playground/` with `uno.config.ts` and example files
 
