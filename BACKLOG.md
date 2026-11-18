@@ -55,7 +55,7 @@ These decided what happened next, and the answers were to come from the UnoCSS t
 - Output must match the UnoCSS ESLint rules (`order`, `order-attributify`) for the same input. When in doubt, compare against it.
 - Every formatter test must also check **idempotency**: formatting the output again gives the same output.
 - Stack: TypeScript (strict), pnpm, Vitest, `@antfu/eslint-config`. Keep it close to UnoCSS conventions, so the code stays easy to contribute upstream if the UnoCSS team is interested.
-- Don't publish to npm. Releases are done manually by the project author.
+- Don't publish to npm or run `pnpm release`. The project author releases: `pnpm release`, then approves the staged version on npm.
 - Small commits, conventional messages (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
 
 ---
