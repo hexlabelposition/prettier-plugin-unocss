@@ -1,7 +1,5 @@
 # prettier-plugin-unocss
 
-> 🚧 Work in progress, not published to npm yet.
-
 A [Prettier](https://prettier.io) plugin that sorts [UnoCSS](https://unocss.dev) utilities, using **your own `uno.config`**. Custom rules, shortcuts and presets are sorted correctly, in the same order as the UnoCSS ESLint rule.
 
 ```diff
