@@ -1,12 +1,12 @@
 # Backlog
 
-Work is split into milestones, done in order: each one builds on the previous. U0–U6 are done; what's left depends on the UnoCSS team, see **Waiting on UnoCSS**.
+Work is split into milestones, done in order: each one builds on the previous. U0–U6 are done, and 1.0.0 is released as a community package.
 Check items off (`[x]`) in the same commit that completes them.
 
 | Section                                                                     | Status                                             |
 | --------------------------------------------------------------------------- | -------------------------------------------------- |
-| [Waiting on UnoCSS](#waiting-on-unocss)                                     | ⏳ Decided by the UnoCSS team; blocks what follows |
-| [↳ Release](#release-only-as-a-community-package)                           | ⏸️ On hold until the package question is answered  |
+| [Waiting on UnoCSS](#waiting-on-unocss)                                     | ✅ Answered: community package                     |
+| [↳ Release](#release-only-as-a-community-package)                           | ✅ 1.0.0 released                                  |
 | [↳ Later](#later-only-if-the-unocss-team-is-interested)                     | 💡 Ideas for upstream, not planned                 |
 | [For coding agents](#for-coding-agents-read-first)                          | Rules for changing the code                        |
 | [U0: Project setup](#u0-project-setup)                                      | ✅ Done                                            |
@@ -19,9 +19,9 @@ Check items off (`[x]`) in the same commit that completes them.
 
 ## Waiting on UnoCSS
 
-These decide what happens next, and the answers come from the UnoCSS team. Check them first: until they are answered, the work below them is on hold.
+These decided what happened next, and the answers were to come from the UnoCSS team.
 
-- [ ] **Monorepo or community package?** Asked in [discussion #5411](https://github.com/unocss/unocss/discussions/5411), no answer yet.
+- [x] **Monorepo or community package?** Asked in [discussion #5411](https://github.com/unocss/unocss/discussions/5411); without an answer, the project author released it as a community package.
   - Monorepo (`@unocss/prettier-plugin`): the code moves to the UnoCSS repository and **Release** below is dropped; the project author discusses the next steps with the UnoCSS team.
   - Community package: do **Release** below from this repository.
 - [x] **`sortRules` exported from `@unocss/core`**: [PR #5439](https://github.com/unocss/unocss/pull/5439), released in 66.13.0:
@@ -33,12 +33,12 @@ These decide what happens next, and the answers come from the UnoCSS team. Check
 
 - [x] README: final pass on usage, options and limitations
 - [x] `CHANGELOG.md`, release tooling (`bumpp` + `changelogithub`, like UnoCSS)
-- [ ] npm publish with provenance from CI (the project author triggers it)
+- [x] npm publish with provenance from CI (the project author triggers it)
   - [x] `.github/workflows/release.yml`: tag check, CI, build without publishing permissions, `npm stage publish` with OIDC, GitHub release; `private` removed from `package.json`
   - [x] GitHub environment `npm` that allows only `v*` tags
   - [x] Trusted publisher on npmjs.com: repository `hexlabelposition/prettier-plugin-unocss`, workflow `release.yml`, environment `npm`
   - [x] Remove the "work in progress" note from the README
-  - [ ] `pnpm release` and approve the staged version
+  - [x] `pnpm release` and approve the staged version
 - [ ] Post the release in discussion #5411
 
 ### Later, only if the UnoCSS team is interested
