@@ -1,5 +1,10 @@
 # prettier-plugin-unocss
 
+[![npm version][npm-version-src]][npm-version-href]
+[![npm downloads][npm-downloads-src]][npm-downloads-href]
+[![CI][ci-src]][ci-href]
+[![License][license-src]][license-href]
+
 A [Prettier](https://prettier.io) plugin that sorts [UnoCSS](https://unocss.dev) utilities, using **your own `uno.config`**. Custom rules, shortcuts and presets are sorted correctly, in the same order as the UnoCSS ESLint rule.
 
 ```diff
@@ -186,3 +191,14 @@ This is an independent community project, not affiliated with or endorsed by the
 ## License
 
 [MIT](./LICENSE)
+
+<!-- Badges -->
+
+[npm-version-src]: https://img.shields.io/npm/v/prettier-plugin-unocss?style=flat&labelColor=555&color=1fa669
+[npm-version-href]: https://npmjs.com/package/prettier-plugin-unocss
+[npm-downloads-src]: https://img.shields.io/npm/dm/prettier-plugin-unocss?style=flat&labelColor=555&color=1fa669
+[npm-downloads-href]: https://npmjs.com/package/prettier-plugin-unocss
+[ci-src]: https://img.shields.io/github/actions/workflow/status/hexlabelposition/prettier-plugin-unocss/ci.yml?branch=main&style=flat&labelColor=555&label=CI
+[ci-href]: https://github.com/hexlabelposition/prettier-plugin-unocss/actions/workflows/ci.yml
+[license-src]: https://img.shields.io/github/license/hexlabelposition/prettier-plugin-unocss.svg?style=flat&labelColor=555&color=1fa669
+[license-href]: https://github.com/hexlabelposition/prettier-plugin-unocss/blob/main/LICENSE
